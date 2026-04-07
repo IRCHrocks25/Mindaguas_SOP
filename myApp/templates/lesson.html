@@ -1,0 +1,1111 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ lesson.title }} - {{ course.name }}{% endblock %}
+
+{% block content %}
+<!-- Desktop: Sidebars are fixed to viewport edges, center content is offset -->
+<!-- Mobile/Tablet: Normal stacked layout -->
+<div class="relative">
+    <!-- Left Sidebar -->
+    {% include '_left_sidebar.html' %}
+    
+    <!-- Center Column: Video & Lesson Info -->
+    <!-- Desktop: Constrained to middle rail (viewport - left sidebar - right sidebar) -->
+    <!-- Mobile/Tablet: Full width -->
+    <div class="w-full pt-6 center-content-rail">
+        <div class="w-full center-content-inner">
+        <!-- Lesson Title -->
+        <h1 class="text-4xl lg:text-2xl font-semibold mb-6">{{ lesson.title }}</h1>
+        
+        <!-- Video Container (only show if video exists) -->
+        {% if lesson.google_drive_url or lesson.vimeo_id or lesson.video_url %}
+        <div class="mb-6">
+            <!-- Video Player -->
+            <div class="relative rounded-lg overflow-hidden mb-4 bg-black" style="padding:56.25% 0 0 0;position:relative;">
+                {% if lesson.google_drive_url %}
+                    <iframe 
+                        src="{{ lesson.google_drive_url }}" 
+                        frameborder="0" 
+                        allow="autoplay; fullscreen"
+                        style="position:absolute;top:0;left:0;width:100%;height:100%;"
+                        title="{{ lesson.title }}"
+                        allowfullscreen
+                    ></iframe>
+                {% elif lesson.vimeo_id %}
+                    <iframe 
+                        id="vimeo-player"
+                        src="https://player.vimeo.com/video/{{ lesson.vimeo_id }}?badge=0&autopause=0&player_id=0&app_id=58479{% if last_watched_timestamp > 0 %}&time={{ last_watched_timestamp }}{% endif %}" 
+                        frameborder="0" 
+                        allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" 
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        style="position:absolute;top:0;left:0;width:100%;height:100%;"
+                        title="{{ lesson.title }}"
+                        allowfullscreen
+                    ></iframe>
+                    <script src="https://player.vimeo.com/api/player.js"></script>
+                {% elif lesson.video_url %}
+                    <iframe src="{{ lesson.get_video_embed_url }}" title="{{ lesson.title }}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+                {% endif %}
+                <div class="absolute top-3 left-3">
+                    <span class="bg-cyan-electric/90 text-[#0a0e27] text-[10px] uppercase tracking-wider px-2 py-1 rounded font-bold">
+                        {{ lesson.get_lesson_type_display }}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Video Info Chips -->
+            <div class="flex flex-wrap gap-3 mb-6">
+                <span class="px-3 py-1 bg-cyan-electric/10 border border-cyan-electric/20 rounded-full text-xs flex items-center gap-2">
+                    <i class="fas fa-clock text-cyan-electric"></i>
+                    {{ lesson.get_formatted_duration }}
+                </span>
+                {% if current_lesson_progress and video_watch_percentage > 0 %}
+                <span class="px-3 py-1 bg-cyan-electric/10 border border-cyan-electric/20 rounded-full text-xs flex items-center gap-2">
+                    <i class="fas fa-eye text-cyan-electric"></i>
+                    {{ video_watch_percentage|floatformat:0 }}% Watched
+                </span>
+                {% endif %}
+                {% if lesson.workbook_url %}
+                <a href="{{ lesson.workbook_url }}" class="px-3 py-1 bg-cyan-electric/10 border border-cyan-electric/20 rounded-full text-xs flex items-center gap-2 hover:bg-cyan-electric/20 transition-colors">
+                    <i class="fas fa-file text-cyan-electric"></i>
+                    Download Workbook
+                </a>
+                {% endif %}
+                {% if lesson.resources_url %}
+                <a href="{{ lesson.resources_url }}" class="px-3 py-1 bg-cyan-electric/10 border border-cyan-electric/20 rounded-full text-xs flex items-center gap-2 hover:bg-cyan-electric/20 transition-colors">
+                    <i class="fas fa-folder text-cyan-electric"></i>
+                    View Resources
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+            
+            <!-- Lesson Content Sections -->
+            <div class="space-y-6">
+                <!-- What You'll Learn Today -->
+                <section class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
+                    <h3 class="text-xl font-bold text-white mb-4">What You'll Learn Today</h3>
+                    <p class="text-gray-300 leading-relaxed">
+                        {{ lesson.description|default:"Learn the fundamentals of live streaming and how to engage your audience in real-time." }}
+                    </p>
+                </section>
+                
+                <!-- Lesson Notes / Content Blocks -->
+                {% if lesson.content and lesson.content.blocks %}
+                <section class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
+                    <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                        <i class="fas fa-sticky-note text-cyan-electric"></i>
+                        Lesson Notes
+                    </h2>
+                    <div class="prose prose-invert max-w-none">
+                        {% for block in lesson.content.blocks %}
+                            {% if block.type == 'paragraph' %}
+                                <p class="text-gray-300 leading-relaxed mb-4">{{ block.data.text|linebreaks }}</p>
+                            {% elif block.type == 'header' %}
+                                <h{{ block.data.level }} class="text-white font-bold mb-4 mt-6 {% if block.data.level == 2 %}text-2xl{% elif block.data.level == 3 %}text-xl{% else %}text-lg{% endif %}">{{ block.data.text }}</h{{ block.data.level }}>
+                            {% elif block.type == 'list' %}
+                                <ul class="list-disc list-outside pl-6 space-y-1 mb-4 {% if block.data.style == 'ordered' %}list-decimal{% endif %}">
+                                    {% for item in block.data.items %}
+                                        <li class="text-gray-300 leading-normal">{{ item }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% elif block.type == 'quote' %}
+                                <blockquote class="border-l-4 border-cyan-electric/50 pl-4 py-2 my-4 italic text-gray-300">
+                                    <p class="mb-2">{{ block.data.text }}</p>
+                                    {% if block.data.caption %}
+                                        <cite class="text-sm text-gray-400 not-italic">— {{ block.data.caption }}</cite>
+                                    {% endif %}
+                                </blockquote>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
+                
+                <!-- This Lesson Will Produce -->
+                {% if lesson.get_outcomes_list %}
+                <section class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
+                    <h3 class="text-xl font-bold text-white mb-6">This Lesson Will Produce</h3>
+                    <ul class="space-y-4">
+                        {% for outcome in lesson.get_outcomes_list %}
+                        <li class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-cyan-electric/20 border border-cyan-electric/40 flex items-center justify-center mt-0.5">
+                                <i class="fas fa-check text-cyan-electric text-xs"></i>
+                            </div>
+                            <span class="text-gray-300 leading-relaxed flex-1">{{ outcome }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endif %}
+                
+                <!-- Lesson Quiz Section -->
+                {% if lesson_quiz %}
+                <section class="bg-gradient-to-br from-purple-accent/10 to-cyan-electric/10 backdrop-blur-sm border border-purple-accent/20 rounded-xl p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-accent to-cyan-electric flex items-center justify-center">
+                                    <i class="fas fa-question-circle text-white text-lg"></i>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-xl font-bold text-white">Lesson Quiz</h3>
+                                    <span class="px-2 py-1 bg-red-500/20 border border-red-500/40 rounded-full text-xs font-semibold text-red-400">Required</span>
+                                </div>
+                            </div>
+                            {% if lesson_quiz.description %}
+                            <p class="text-gray-300 text-sm mb-4">{{ lesson_quiz.description }}</p>
+                            {% endif %}
+                            <p class="text-yellow-400 text-sm mb-4">
+                                <i class="fas fa-exclamation-circle mr-1"></i>
+                                You must pass this quiz to complete the lesson.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if latest_quiz_attempt %}
+                    <!-- Quiz Results -->
+                    <div class="mb-4 p-4 rounded-lg border {% if latest_quiz_attempt.passed %}border-green-500/40 bg-green-500/10{% else %}border-yellow-500/40 bg-yellow-500/10{% endif %}">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fas {% if latest_quiz_attempt.passed %}fa-check-circle text-green-400{% else %}fa-exclamation-circle text-yellow-400{% endif %} text-xl"></i>
+                                <div>
+                                    <div class="font-semibold text-white">
+                                        {% if latest_quiz_attempt.passed %}
+                                            Quiz Passed! 🎉
+                                        {% else %}
+                                            Quiz Score: {{ latest_quiz_attempt.score|floatformat:0 }}%
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-sm text-gray-300">
+                                        {% if latest_quiz_attempt.passed %}
+                                            Score: {{ latest_quiz_attempt.score|floatformat:0 }}% (Passing: {{ lesson_quiz.passing_score }}%)
+                                        {% else %}
+                                            Passing score: {{ lesson_quiz.passing_score }}% - You must pass to complete the lesson
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Quiz Action Button -->
+                    <a 
+                        href="{% url 'lesson_quiz' course.slug lesson.slug %}"
+                        class="inline-flex items-center justify-center gap-2 w-full px-6 py-3 bg-gradient-to-r from-purple-accent to-cyan-electric hover:from-purple-accent/90 hover:to-cyan-electric/90 text-white font-semibold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <i class="fas {% if latest_quiz_attempt and latest_quiz_attempt.passed %}fa-check{% elif latest_quiz_attempt %}fa-redo{% else %}fa-play{% endif %}"></i>
+                        <span>{% if latest_quiz_attempt and latest_quiz_attempt.passed %}Quiz Completed{% elif latest_quiz_attempt %}Retake Quiz{% else %}Take Required Quiz{% endif %}</span>
+                    </a>
+                    
+                    {% if quiz_attempts %}
+                    <div class="mt-4 text-sm text-gray-400">
+                        <i class="fas fa-history mr-2"></i>
+                        {{ quiz_attempts|length }} attempt{{ quiz_attempts|length|pluralize }} total
+                    </div>
+                    {% endif %}
+                </section>
+                {% endif %}
+            </div>
+            
+            <!-- Finish Lesson Button -->
+            <div class="mt-8 pt-6 border-t border-cyan-electric/10">
+                {% if lesson.id in completed_lessons %}
+                <div class="flex items-center justify-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                    <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                    <span class="text-green-400 font-semibold">Lesson Completed</span>
+                </div>
+                {% else %}
+                    {% if lesson_quiz and not quiz_passed %}
+                    <!-- Quiz Required Message -->
+                    <div class="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-lock text-yellow-400 text-xl"></i>
+                            <div>
+                                <div class="font-semibold text-yellow-400 mb-1">Quiz Required</div>
+                                <div class="text-sm text-gray-300">You must pass the lesson quiz before you can complete this lesson.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button 
+                        id="finish-lesson-btn" 
+                        disabled
+                        class="w-full py-4 px-6 bg-gray-600/50 text-gray-400 font-bold text-lg rounded-xl cursor-not-allowed flex items-center justify-center gap-3 opacity-50"
+                    >
+                        <i class="fas fa-lock"></i>
+                        <span>Complete Quiz to Finish Lesson</span>
+                    </button>
+                    {% else %}
+                    {% if next_lesson and is_last_in_module %}
+                    <!-- Complete lesson and navigate to next module -->
+                    <button 
+                        id="continue-next-module-btn" 
+                        class="w-full py-4 px-6 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold text-lg rounded-xl shadow-lg shadow-cyan-electric/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
+                    >
+                        <i class="fas fa-arrow-right"></i>
+                        <span>Continue to Next Module</span>
+                    </button>
+                    {% else %}
+                    <!-- Finish lesson (all modules done) -->
+                    <button 
+                        id="finish-lesson-btn" 
+                        class="w-full py-4 px-6 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold text-lg rounded-xl shadow-lg shadow-cyan-electric/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
+                    >
+                        <i class="fas fa-check-circle"></i>
+                        <span>Finish Lesson</span>
+                    </button>
+                    {% endif %}
+                    {% endif %}
+                {% endif %}
+            </div>
+            
+            <!-- Lesson Error Modal -->
+            <div 
+                id="lesson-error-modal" 
+                class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm"
+            >
+                <div class="bg-[#0a0e27] border border-cyan-electric/30 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-9 h-9 rounded-full bg-red-500/10 border border-red-500/40 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-red-400"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-white mb-1">Almost there!</h3>
+                            <p id="lesson-error-message" class="text-sm text-gray-300 leading-relaxed"></p>
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button 
+                            type="button"
+                            id="lesson-error-close"
+                            class="px-5 py-2 rounded-full bg-gradient-to-r from-cyan-electric to-purple-accent text-[#0a0e27] font-semibold text-sm hover:from-cyan-electric/90 hover:to-purple-accent/90 focus:outline-none focus:ring-2 focus:ring-cyan-electric/60"
+                        >
+                            Got it
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+    
+    <!-- Right Sidebar -->
+    {% include '_right_sidebar.html' %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    /* Custom styles for edge-pinned sidebars and center content rail */
+    
+    /* Center Content Rail - Constrained to space between fixed sidebars */
+    /* Layout: Left 20% | Center 60% | Right 20% */
+    @media (min-width: 1024px) {
+        .center-content-rail {
+            margin-left: 20%;
+            margin-right: 20%;
+            width: 60%;
+            min-width: 0; /* Prevent overflow */
+        }
+        
+        /* Remove gutters completely for maximum video width */
+        .center-content-inner {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        /* Ensure sidebars scroll smoothly */
+        .sidebar-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 240, 255, 0.3) transparent;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 240, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 240, 255, 0.5);
+        }
+    }
+    
+    /* Ensure video uses absolute maximum width */
+    @media (min-width: 1024px) {
+        .center-content-inner > div:first-child {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        
+        /* Video player container - no constraints */
+        .center-content-inner > div:first-child > div:nth-of-type(2) {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+    }
+    
+    /* Video player should be as wide as possible */
+    @media (min-width: 1024px) {
+        .center-content-inner > div:first-child > div:first-of-type {
+            width: 100%;
+            max-width: 100%;
+        }
+    }
+    
+    /* Modern Chatbot Styling */
+    .chat-message {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .user-message .bg-gradient-to-br {
+        box-shadow: 0 4px 12px rgba(0, 240, 255, 0.15);
+    }
+    
+    .ai-message .bg-\[#0a0e27\]\/60 {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    #chat-input:focus {
+        box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
+    }
+    
+    #send-message:hover {
+        transform: scale(1.05);
+    }
+    
+    #send-message:active {
+        transform: scale(0.95);
+    }
+    
+    .quick-suggestion-btn {
+        transition: all 0.2s ease;
+    }
+    
+    .quick-suggestion-btn:hover {
+        transform: translateX(2px);
+    }
+</style>
+<script>
+    // Get CSRF token from cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    
+    // Lesson Error Modal helpers
+    const lessonErrorModal = document.getElementById('lesson-error-modal');
+    const lessonErrorMessage = document.getElementById('lesson-error-message');
+    const lessonErrorClose = document.getElementById('lesson-error-close');
+    
+    function showLessonErrorModal(message) {
+        if (!lessonErrorModal || !lessonErrorMessage) {
+            return;
+        }
+        lessonErrorMessage.textContent = message;
+        lessonErrorModal.classList.remove('hidden');
+        lessonErrorModal.classList.add('flex');
+    }
+    
+    if (lessonErrorClose && lessonErrorModal) {
+        lessonErrorClose.addEventListener('click', () => {
+            lessonErrorModal.classList.add('hidden');
+            lessonErrorModal.classList.remove('flex');
+        });
+        
+        // Close when clicking outside the modal content
+        lessonErrorModal.addEventListener('click', (e) => {
+            if (e.target === lessonErrorModal) {
+                lessonErrorModal.classList.add('hidden');
+                lessonErrorModal.classList.remove('flex');
+            }
+        });
+    }
+    
+    // Video Progress Tracking
+    const lessonId = {{ lesson.id }};
+    const nextLessonUrl = {% if next_lesson %}"{% url 'lesson_detail' course_slug=course.slug lesson_slug=next_lesson.slug %}"{% else %}null{% endif %};
+    const videoDuration = {{ lesson.vimeo_duration_seconds|default:0 }};
+    let videoProgressInterval = null;
+    let vimeoPlayer = null;
+    
+    // Initialize Vimeo player and track progress
+    if (document.getElementById('vimeo-player') && typeof Vimeo !== 'undefined') {
+        const iframe = document.getElementById('vimeo-player');
+        vimeoPlayer = new Vimeo.Player(iframe);
+        
+        // Resume from last watched position
+        const lastTimestamp = {{ last_watched_timestamp|default:0 }};
+        if (lastTimestamp > 0 && lastTimestamp < videoDuration) {
+            vimeoPlayer.setCurrentTime(lastTimestamp).then(() => {
+                console.log('Resumed from:', lastTimestamp);
+            }).catch(err => {
+                console.log('Could not resume:', err);
+            });
+        }
+        
+        // Track video progress every 5 seconds
+        videoProgressInterval = setInterval(() => {
+            if (vimeoPlayer) {
+                vimeoPlayer.getCurrentTime().then(seconds => {
+                    vimeoPlayer.getDuration().then(duration => {
+                        const watchPercentage = (seconds / duration) * 100;
+                        updateVideoProgress(watchPercentage, seconds);
+                    });
+                });
+            }
+        }, 5000);
+        
+        // Track on video end
+        vimeoPlayer.on('ended', () => {
+            if (videoDuration > 0) {
+                updateVideoProgress(100, videoDuration);
+            }
+        });
+        
+        // Track on pause (save progress)
+        vimeoPlayer.on('pause', () => {
+            vimeoPlayer.getCurrentTime().then(seconds => {
+                vimeoPlayer.getDuration().then(duration => {
+                    const watchPercentage = (seconds / duration) * 100;
+                    updateVideoProgress(watchPercentage, seconds);
+                });
+            });
+        });
+    }
+    
+    // Function to update video progress
+    function updateVideoProgress(watchPercentage, timestamp) {
+        // Return the fetch promise so callers can wait for completion if needed
+        return fetch(`/api/lessons/${lessonId}/progress/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                watch_percentage: watchPercentage,
+                timestamp: timestamp
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.completed) {
+                // Lesson was auto-completed, reload to show completion state
+                const finishBtn = document.getElementById('finish-lesson-btn');
+                if (finishBtn && !finishBtn.disabled) {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating video progress:', error);
+        });
+    }
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (videoProgressInterval) {
+            clearInterval(videoProgressInterval);
+        }
+    });
+    
+    // Module toggle
+    document.querySelectorAll('.module-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const moduleId = this.dataset.module;
+            const content = document.querySelector(`.module-content[data-module="${moduleId}"]`);
+            const icon = this.querySelector('i');
+            content.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
+        });
+    });
+    
+    // Modern Chatbot Interface Functions - Initialize when DOM is ready
+    let chatMessages, chatInput, sendButton, quickSuggestions;
+    
+    function initChatbot() {
+        chatMessages = document.getElementById('chat-messages');
+        chatInput = document.getElementById('chat-input');
+        sendButton = document.getElementById('send-message');
+        quickSuggestions = document.getElementById('quick-suggestions');
+        
+        if (!chatMessages || !chatInput || !sendButton) {
+            console.warn('Chatbot elements not found');
+            return;
+        }
+        
+        setupChatbotListeners();
+    }
+    
+    function setupChatbotListeners() {
+    
+    // Function to add user message to chat
+    function addUserMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message user-message';
+        messageDiv.innerHTML = `
+            <div class="flex items-start gap-3 justify-end">
+                <div class="flex-1 min-w-0 flex justify-end">
+                    <div class="max-w-[85%]">
+                        <div class="bg-gradient-to-br from-cyan-electric to-purple-accent rounded-2xl rounded-tr-sm px-4 py-3">
+                            <p class="text-sm text-[#0a0e27] font-medium leading-relaxed">${escapeHtml(message)}</p>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1.5 mr-1 text-right">Just now</div>
+                    </div>
+                </div>
+                <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <i class="fas fa-user text-white text-xs"></i>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+        scrollToBottom();
+    }
+    
+    // Function to add AI message to chat
+    function addAIMessage(message, isThinking = false) {
+        if (!chatMessages) {
+            console.error('chatMessages is not initialized!');
+            chatMessages = document.getElementById('chat-messages');
+            if (!chatMessages) {
+                console.error('Could not find chat-messages element!');
+                return null;
+            }
+        }
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message ai-message';
+        const content = isThinking 
+            ? '<div class="flex items-center gap-2"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-electric"></div><span class="text-gray-400">Thinking...</span></div>'
+            : `<p class="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">${escapeHtml(message)}</p>`;
+        
+        messageDiv.innerHTML = `
+            <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <i class="fas fa-sparkles text-white text-xs"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/20 rounded-2xl rounded-tl-sm px-4 py-3">
+                        ${content}
+                    </div>
+                    ${!isThinking ? '<div class="text-xs text-gray-500 mt-1.5 ml-1">Just now</div>' : ''}
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+        scrollToBottom();
+        return messageDiv;
+    }
+    
+    // Function to update AI message (replace thinking with actual response)
+    function updateAIMessage(messageDiv, message) {
+        const contentDiv = messageDiv.querySelector('.bg-\\[\\#0a0e27\\]\\/60');
+        if (contentDiv) {
+            contentDiv.innerHTML = `
+                <div class="flex items-start justify-between gap-2">
+                    <p class="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap flex-1">${escapeHtml(message)}</p>
+                    <button class="copy-message-btn flex-shrink-0 text-cyan-electric/50 hover:text-cyan-electric transition-colors" title="Copy message">
+                        <i class="fas fa-copy text-xs"></i>
+                    </button>
+                </div>
+            `;
+            const timestamp = document.createElement('div');
+            timestamp.className = 'text-xs text-gray-500 mt-1.5 ml-1';
+            timestamp.textContent = 'Just now';
+            messageDiv.querySelector('.flex-1').appendChild(timestamp);
+            
+            // Add copy functionality
+            const copyBtn = contentDiv.querySelector('.copy-message-btn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const text = messageDiv.querySelector('p').textContent;
+                    navigator.clipboard.writeText(text).then(() => {
+                        const icon = copyBtn.querySelector('i');
+                        const originalClass = icon.className;
+                        icon.className = 'fas fa-check text-xs';
+                        setTimeout(() => {
+                            icon.className = originalClass;
+                        }, 2000);
+                    });
+                });
+            }
+        }
+        scrollToBottom();
+    }
+    
+    // Function to scroll chat to bottom
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Function to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Function to send message
+    function sendMessage(message, action = null) {
+        if (!message.trim() && !action) return;
+        
+        const userMessage = message || (action ? getActionText(action) : '');
+        addUserMessage(userMessage);
+        
+        // Hide quick suggestions after first message
+        if (quickSuggestions && quickSuggestions.children.length > 0) {
+            quickSuggestions.style.display = 'none';
+        }
+        
+        // Get current lesson and course info
+        const lessonId = {{ lesson.id }};
+        const lessonTitle = '{{ lesson.title|escapejs }}';
+        const courseName = '{{ course.name|escapejs }}';
+        
+        // Add thinking message
+        const thinkingMessage = addAIMessage('', true);
+        
+        // Determine which chatbot endpoint to use
+        const useLessonChatbot = {% if lesson.ai_chatbot_enabled and lesson.ai_chatbot_training_status == 'trained' %}true{% else %}false{% endif %};
+        const chatbotEndpoint = useLessonChatbot 
+            ? `/api/lessons/{{ lesson.id }}/chatbot/`
+            : '/api/chatbot/';
+        
+        // Send request to chatbot webhook
+        fetch(chatbotEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(
+                useLessonChatbot ? {
+                    message: userMessage
+                } : {
+                    action: action || 'free_form',
+                    action_text: userMessage,
+                    user_message: userMessage,
+                    lesson_id: lessonId,
+                    lesson_title: lessonTitle,
+                    course_name: courseName
+                }
+            )
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Remove thinking message
+            if (thinkingMessage && thinkingMessage.parentNode) {
+                thinkingMessage.remove();
+            }
+            
+            // Log the complete raw response from backend
+            console.log('=== AI RESPONSE DEBUG ===');
+            console.log('Full response object:', JSON.stringify(data, null, 2));
+            console.log('Response type:', typeof data);
+            console.log('Response keys:', Object.keys(data));
+            
+            if (useLessonChatbot) {
+                // Lesson-specific chatbot response format (same as test chatbot)
+                if (data.success) {
+                    // Backend already cleaned the response, so use it directly
+                    let cleanResponse = data.response || data.message || data.text || data.answer || '';
+                    
+                    console.log('Frontend: Raw response received');
+                    console.log('Response value:', cleanResponse);
+                    console.log('Response length:', cleanResponse.length);
+                    console.log('Response type:', typeof cleanResponse);
+                    
+                    // Handle list format like [{'output': '...'}]
+                    if (typeof cleanResponse === 'string' && cleanResponse.trim().startsWith('[')) {
+                        console.log('Detected list format response');
+                        try {
+                            const parsed = JSON.parse(cleanResponse);
+                            console.log('Parsed list:', parsed);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                const firstItem = parsed[0];
+                                console.log('First item:', firstItem);
+                                if (typeof firstItem === 'object' && firstItem !== null) {
+                                    cleanResponse = firstItem.output || firstItem.Output || firstItem.response || firstItem.Response || 
+                                                   firstItem.message || firstItem.Message || firstItem.text || firstItem.Text || 
+                                                   firstItem.answer || firstItem.Answer || cleanResponse;
+                                    console.log('Extracted from list item:', cleanResponse);
+                                } else if (typeof firstItem === 'string') {
+                                    cleanResponse = firstItem;
+                                    console.log('Using string from list:', cleanResponse);
+                                }
+                            }
+                        } catch (e) {
+                            // If parsing fails, try regex extraction
+                            console.warn('Frontend: Failed to parse list response, attempting extraction', e);
+                            const listMatch = cleanResponse.match(/\[\s*\{\s*['"]output['"]\s*:\s*['"]([^'"]+)['"]/i);
+                            if (listMatch && listMatch[1]) {
+                                cleanResponse = listMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
+                                console.log('Extracted via regex:', cleanResponse);
+                            }
+                        }
+                    }
+                    // Handle dict format like {'Response': '...'} or {'output': '...'}
+                    else if (typeof cleanResponse === 'string' && cleanResponse.trim().startsWith('{') && !cleanResponse.includes('\n')) {
+                        console.log('Detected dict format response');
+                        try {
+                            const parsed = JSON.parse(cleanResponse);
+                            console.log('Parsed dict:', parsed);
+                            cleanResponse = parsed.Response || parsed.response || parsed.message || parsed.text || 
+                                           parsed.answer || parsed.output || parsed.Output || cleanResponse;
+                            console.log('Extracted from dict:', cleanResponse);
+                        } catch (e) {
+                            // If parsing fails, backend should have handled it, but try extraction as fallback
+                            console.warn('Frontend: Still JSON-like, attempting extraction', e);
+                            const responseMatch = cleanResponse.match(/['"]Response['"]\s*:\s*['"]((?:[^"'\\]|\\.|\\n)*)['"]/i);
+                            if (responseMatch && responseMatch[1]) {
+                                cleanResponse = responseMatch[1].replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\n/g, '\n');
+                                console.log('Extracted via regex:', cleanResponse);
+                            }
+                        }
+                    }
+                    
+                    // If still empty, show fallback
+                    if (!cleanResponse || cleanResponse.trim() === '') {
+                        console.warn('Frontend: Empty response, using fallback');
+                        cleanResponse = 'I apologize, but I couldn\'t generate a response.';
+                    }
+                    
+                    console.log('=== FINAL CLEANED RESPONSE ===');
+                    console.log('Final response:', cleanResponse);
+                    console.log('Final response length:', cleanResponse.length);
+                    console.log('Final response type:', typeof cleanResponse);
+                    console.log('============================');
+                    addAIMessage(cleanResponse, false);
+                } else {
+                    console.error('=== CHATBOT ERROR ===');
+                    console.error('Error response:', JSON.stringify(data, null, 2));
+                    console.error('Error message:', data.error || 'Unknown error');
+                    console.error('=====================');
+                    addAIMessage('Sorry, I encountered an error: ' + (data.error || 'Unknown error'), false);
+                }
+            } else {
+                // General chatbot response format
+                console.log('=== GENERAL CHATBOT RESPONSE ===');
+                console.log('Full response object:', JSON.stringify(data, null, 2));
+                if (data.error) {
+                    console.log('Error detected:', data.error);
+                    addAIMessage(`Error: ${data.error}`, false);
+                } else {
+                    const responseText = data.response || data.message || JSON.stringify(data);
+                    console.log('General chatbot response text:', responseText);
+                    console.log('Response length:', responseText.length);
+                    console.log('============================');
+                    addAIMessage(responseText, false);
+                }
+            }
+        })
+        .catch(error => {
+            // Remove thinking message
+            if (thinkingMessage && thinkingMessage.parentNode) {
+                thinkingMessage.remove();
+            }
+            console.error('=== CHATBOT FETCH ERROR ===');
+            console.error('Error object:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            console.error('===========================');
+            addAIMessage('Sorry, I encountered an error. Please try again.', false);
+        });
+    }
+    
+    // Function to get action text
+    function getActionText(action) {
+        const actionMap = {
+            'bullet-summary': 'Give me the 5-bullet version.',
+            'action-plan': 'Turn this into a 3-step action plan.',
+            'delegate-instructions': 'Explain it like I\'m delegating this.',
+            'promo-emails': 'Draft 3 promotional emails for this sprint.',
+            'webinar-outline': 'Write a webinar outline based on this session.',
+            'social-posts': 'Generate 5 social posts from this content.',
+            'quiz-questions': 'Give me 5 quiz questions from this session.',
+            'check-understanding': 'Check my understanding.',
+            'role-play': 'Role-play: you\'re the client, I\'m pitching this.'
+        };
+        return actionMap[action] || '';
+    }
+    
+        // Send button click
+        sendButton.addEventListener('click', function() {
+            const message = chatInput.value.trim();
+            if (message) {
+                sendMessage(message);
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+                sendButton.disabled = true;
+            }
+        });
+        
+        // Enter key to send (Shift+Enter for new line)
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (this.value.trim()) {
+                    sendButton.click();
+                }
+            }
+        });
+        
+        // Auto-resize textarea
+        chatInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            sendButton.disabled = !this.value.trim();
+        });
+        
+        // Initial send button state
+        sendButton.disabled = !chatInput.value.trim();
+        
+        // Quick suggestion buttons
+        document.querySelectorAll('.quick-suggestion-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.dataset.action;
+                sendMessage('', action);
+            });
+        });
+        
+        // Clear chat button
+        const clearChatBtn = document.getElementById('clear-chat');
+        if (clearChatBtn) {
+            clearChatBtn.addEventListener('click', function() {
+                if (confirm('Clear all chat messages?')) {
+                    // Remove all messages except the welcome message
+                    const messages = chatMessages.querySelectorAll('.chat-message');
+                    messages.forEach(msg => {
+                        // Check if this is the welcome message
+                        const isWelcome = msg.querySelector('.fa-sparkles') && 
+                                         msg.textContent.includes('Hi! I\'m your AI Lesson Coach');
+                        if (!isWelcome) {
+                            msg.remove();
+                        }
+                    });
+                    
+                    // Show quick suggestions again
+                    if (quickSuggestions) {
+                        quickSuggestions.style.display = 'block';
+                    }
+                    scrollToBottom();
+                }
+            });
+        }
+    }
+    
+    // Initialize chatbot when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initChatbot);
+    } else {
+        initChatbot();
+    }
+    
+    // Continue to Next Module Button Handler
+    const continueNextModuleBtn = document.getElementById('continue-next-module-btn');
+    if (continueNextModuleBtn) {
+        continueNextModuleBtn.addEventListener('click', function() {
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            const quizPassed = {{ quiz_passed|yesno:"true,false" }};
+            const hasQuiz = {{ lesson_quiz|yesno:"true,false" }};
+
+            // Check if quiz is required and not passed
+            if (hasQuiz && !quizPassed) {
+                showLessonErrorModal('You must pass the lesson quiz before continuing to the next module. Please take the quiz first.');
+                return;
+            }
+
+            // Helper to complete lesson and navigate to next module
+            function completeAndNavigate() {
+                // Disable button and show loading state
+                btn.disabled = true;
+                btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0a0e27]"></div><span>Completing lesson...</span>';
+                
+                fetch(`/api/lessons/${lessonId}/complete/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Navigate to next module after completing lesson
+                        if (nextLessonUrl) {
+                            window.location.href = nextLessonUrl;
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        // Show error
+                        btn.disabled = false;
+                        btn.innerHTML = originalHTML;
+                        const errorMsg = data.error || 'Failed to complete lesson';
+                        if (data.quiz_required) {
+                            showLessonErrorModal(errorMsg + '\n\nClick the quiz button above to take the required quiz.');
+                        } else {
+                            showLessonErrorModal(errorMsg);
+                        }
+                    }
+                })
+                .catch(error => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                    showLessonErrorModal('Error: ' + error.message);
+                });
+            }
+
+            // Force-save 100% progress right before completing
+            updateVideoProgress(100, videoDuration || 0)
+                .finally(() => {
+                    completeAndNavigate();
+                });
+        });
+    }
+    
+    // Finish Lesson Button Handler
+    const finishLessonBtn = document.getElementById('finish-lesson-btn');
+    if (finishLessonBtn && !finishLessonBtn.disabled) {
+        finishLessonBtn.addEventListener('click', function() {
+            const lessonId = {{ lesson.id }};
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            const quizPassed = {{ quiz_passed|yesno:"true,false" }};
+            const hasQuiz = {{ lesson_quiz|yesno:"true,false" }};
+
+            // Check if quiz is required and not passed
+            if (hasQuiz && !quizPassed) {
+                showLessonErrorModal('You must pass the lesson quiz before completing this lesson. Please take the quiz first.');
+                return;
+            }
+
+            // Helper to actually call the complete API
+            function completeLessonRequest() {
+                // Disable button and show loading state
+                btn.disabled = true;
+                btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0a0e27]"></div><span>Marking as complete...</span>';
+                
+                fetch(`/api/lessons/${lessonId}/complete/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show completion state with next lesson button if available
+                        hideStudentPreloader();
+                        let completionHTML = `
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                                    <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                                    <span class="text-green-400 font-semibold">Lesson Completed!</span>
+                                </div>
+                        `;
+                        
+                        // Add next lesson button if available
+                        if (nextLessonUrl) {
+                            completionHTML += `
+                                <a 
+                                    href="${nextLessonUrl}"
+                                    class="flex items-center justify-center gap-3 w-full px-6 py-3 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                                >
+                                    <span>Continue to Next Lesson</span>
+                                    <i class="fas fa-arrow-right"></i>
+                                </a>
+                            `;
+                        }
+                        
+                        completionHTML += `</div>`;
+                        const btnParent = btn.parentElement;
+                        btn.outerHTML = completionHTML;
+                        
+                        // Scroll to show the completion message and button
+                        const completionDiv = btnParent.querySelector('.space-y-4');
+                        if (completionDiv) {
+                            setTimeout(() => {
+                                completionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
+                        }
+                        
+                        // Reload page after a short delay to update all UI elements (only if no next lesson)
+                        if (!nextLessonUrl) {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        }
+                    } else {
+                        // Show error
+                        hideStudentPreloader();
+                        btn.disabled = false;
+                        btn.innerHTML = originalHTML;
+                        const errorMsg = data.error || 'Failed to complete lesson';
+                        if (data.quiz_required) {
+                            // Quiz required error - show link to quiz
+                            showLessonErrorModal(errorMsg + '\n\nClick the quiz button above to take the required quiz.');
+                        } else {
+                            showLessonErrorModal(errorMsg);
+                        }
+                    }
+                })
+                .catch(error => {
+                    hideStudentPreloader();
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                    showLessonErrorModal('Error: ' + error.message);
+                });
+            }
+
+            // Force-save 100% progress right before completing, so the backend always sees it as fully watched.
+            // This works even if the video player didn't track watch time correctly.
+            updateVideoProgress(100, videoDuration || 0)
+                .finally(() => {
+                    completeLessonRequest();
+                });
+        });
+    }
+</script>
+{% endblock %}
+

@@ -1,0 +1,355 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard - S.O.P Master{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'navy-dark': '#0a0e27',
+                        'navy-mid': '#1a1f3a',
+                        'cyan-electric': '#00f0ff',
+                        'purple-accent': '#a855f7',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-[#0a0e27] via-[#1a1f3a] to-[#000000] min-h-screen text-white">
+    <!-- Mobile Menu Overlay -->
+    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden"></div>
+    
+    <!-- Sidebar Navigation -->
+    <div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-[#0a0e27]/95 backdrop-blur-sm border-r border-cyan-electric/20 z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+        <div class="p-4 sm:p-6">
+            <!-- Logo and Close Button -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-electric to-purple-accent flex items-center justify-center">
+                        <i class="fas fa-bolt text-white"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] uppercase tracking-widest text-cyan-electric/70 font-semibold">Dashboard</div>
+                        <div class="text-sm font-bold">AI Academy</div>
+                    </div>
+                </div>
+                <button id="close-sidebar" class="md:hidden p-2 text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Navigation Links -->
+            <nav class="space-y-2">
+                <a href="{% url 'dashboard_home' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if request.resolver_match.url_name == 'dashboard_home' %}bg-cyan-electric/20 text-cyan-electric border-l-2 border-cyan-electric{% else %}text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric{% endif %}">
+                    <i class="fas fa-home w-5"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="{% url 'dashboard_analytics' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if request.resolver_match.url_name == 'dashboard_analytics' %}bg-cyan-electric/20 text-cyan-electric border-l-2 border-cyan-electric{% else %}text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric{% endif %}">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="{% url 'dashboard_courses' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if 'course' in request.resolver_match.url_name %}bg-cyan-electric/20 text-cyan-electric border-l-2 border-cyan-electric{% else %}text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric{% endif %}">
+                    <i class="fas fa-book w-5"></i>
+                    <span>Courses</span>
+                </a>
+                <a href="{% url 'dashboard_lessons' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if 'lesson' in request.resolver_match.url_name and 'dashboard' in request.resolver_match.url_name and 'quiz' not in request.resolver_match.url_name %}bg-cyan-electric/20 text-cyan-electric border-l-2 border-cyan-electric{% else %}text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric{% endif %}">
+                    <i class="fas fa-video w-5"></i>
+                    <span>Lessons</span>
+                </a>
+                <a href="{% url 'dashboard_quizzes' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if 'quiz' in request.resolver_match.url_name and 'dashboard' in request.resolver_match.url_name %}bg-cyan-electric/20 text-cyan-electric border-l-2 border-cyan-electric{% else %}text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric{% endif %}">
+                    <i class="fas fa-clipboard-question w-5"></i>
+                    <span>Quizzes</span>
+                </a>
+                <a href="{% url 'dashboard_students' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if 'student' in request.resolver_match.url_name %}bg-cyan-electric/20 text-cyan-electric border-l-2 border-cyan-electric{% else %}text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric{% endif %}">
+                    <i class="fas fa-users w-5"></i>
+                    <span>Students</span>
+                </a>
+                <a href="{% url 'dashboard_bundles' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all {% if 'bundle' in request.resolver_match.url_name %}bg-purple-accent/20 text-purple-accent border-l-2 border-purple-accent{% else %}text-gray-300 hover:bg-purple-accent/10 hover:text-purple-accent{% endif %}">
+                    <i class="fas fa-gift w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="{% url 'home' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-gray-300 hover:bg-cyan-electric/10 hover:text-cyan-electric">
+                    <i class="fas fa-external-link-alt w-5"></i>
+                    <span>View Site</span>
+                </a>
+            </nav>
+        </div>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="md:ml-64">
+        <!-- Top Bar -->
+        <div class="bg-[#0a0e27]/80 backdrop-blur-sm border-b border-cyan-electric/20 sticky top-0 z-30">
+            <div class="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button id="open-sidebar" class="md:hidden p-2 text-white hover:text-cyan-electric transition-colors">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h1 class="text-xl sm:text-2xl font-bold">{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+                <div class="flex items-center gap-2 sm:gap-4">
+                    <div class="text-xs sm:text-sm text-gray-400 hidden sm:block">
+                        <i class="fas fa-user-circle mr-2"></i>
+                        {{ user.get_full_name|default:user.username }}
+                    </div>
+                    <a href="{% url 'home' %}" class="px-3 sm:px-4 py-2 rounded-full border border-cyan-electric/30 text-xs sm:text-sm font-medium hover:bg-cyan-electric/10 hover:border-cyan-electric/50 transition-all">
+                        <span class="hidden sm:inline">Log Out</span>
+                        <i class="fas fa-sign-out-alt sm:hidden"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Page Content -->
+        <main class="p-4 sm:p-6 lg:p-8">
+            <!-- Messages -->
+            {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                <div class="px-4 py-3 rounded-lg border {% if message.tags == 'error' %}bg-red-500/20 border-red-500/30 text-red-400{% elif message.tags == 'success' %}bg-green-500/20 border-green-500/30 text-green-400{% else %}bg-cyan-electric/20 border-cyan-electric/30 text-cyan-electric{% endif %}">
+                    <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    
+    <!-- AI Generation Progress - Stacked Google Drive style widgets -->
+    {% if ai_generating_courses %}
+    <div id="ai-generation-stack" class="fixed bottom-6 right-6 z-50 flex flex-col-reverse gap-3 max-h-[70vh] overflow-y-auto">
+        {% for item in ai_generating_courses %}
+        <div id="ai-widget-{{ item.id }}" class="ai-generation-widget w-80 sm:w-96 bg-[#1a1f3a] border border-cyan-electric/30 rounded-xl shadow-2xl shadow-cyan-electric/20 overflow-hidden flex-shrink-0">
+            <div class="p-4">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-full bg-cyan-electric/20 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-cyan-electric"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-sm font-semibold text-white truncate">Generating AI Content</div>
+                        <div class="ai-widget-course-name text-xs text-gray-400 truncate">{{ item.name|truncatechars:45 }}</div>
+                    </div>
+                    <button type="button" class="ai-widget-dismiss text-gray-400 hover:text-white p-1.5 rounded hover:bg-white/10 transition-colors" data-course-id="{{ item.id }}" title="Dismiss" aria-label="Dismiss">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="ai-widget-status text-xs text-cyan-electric/90 mb-2">Starting...</div>
+                <div class="h-1.5 bg-[#0a0e27] rounded-full overflow-hidden">
+                    <div class="ai-widget-progress h-full bg-gradient-to-r from-cyan-electric to-purple-accent rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="ai-widget-error mt-2 text-xs text-red-400 hidden"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Universal Preloader -->
+    <div id="universal-preloader" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0a0e27]/95 backdrop-blur-md">
+        <div class="text-center">
+            <!-- Animated Spinner -->
+            <div class="relative mb-8">
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-32 h-32 border-4 border-cyan-electric/30 rounded-full animate-spin" style="border-top-color: cyan-electric;"></div>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-24 h-24 border-4 border-purple-accent/30 rounded-full animate-spin" style="border-top-color: purple-accent; animation-direction: reverse; animation-duration: 1.5s;"></div>
+                </div>
+                <div class="relative flex items-center justify-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-cyan-electric to-purple-accent rounded-full flex items-center justify-center shadow-2xl shadow-cyan-electric/50">
+                        <i class="fas fa-spinner text-2xl text-[#0a0e27] animate-spin"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Text -->
+            <h3 class="text-2xl font-bold mb-4 bg-gradient-to-r from-cyan-electric to-purple-accent bg-clip-text text-transparent" id="preloader-text">
+                Saving...
+            </h3>
+            <p class="text-gray-400">Please wait while we process your request</p>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{% static 'js/main.js' %}"></script>
+    
+    <script>
+    // Mobile sidebar toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const openSidebarBtn = document.getElementById('open-sidebar');
+        const closeSidebarBtn = document.getElementById('close-sidebar');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobile-sidebar-overlay');
+        
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        
+        if (openSidebarBtn) {
+            openSidebarBtn.addEventListener('click', openSidebar);
+        }
+        
+        if (closeSidebarBtn) {
+            closeSidebarBtn.addEventListener('click', closeSidebar);
+        }
+        
+        if (overlay) {
+            overlay.addEventListener('click', closeSidebar);
+        }
+        
+        // Close sidebar when clicking a nav link on mobile
+        const navLinks = sidebar.querySelectorAll('nav a');
+        navLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 768) {
+                    closeSidebar();
+                }
+            });
+        });
+    });
+    
+    // Universal preloader for all form submissions
+    (function() {
+        // Show preloader on form submit
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            
+            // Skip if it's the AI form (has its own loader)
+            if (form.id === 'ai-form') {
+                return;
+            }
+            
+            // Skip if form has data-no-loader attribute
+            if (form.hasAttribute('data-no-loader')) {
+                return;
+            }
+            
+            // Get form action text
+            let actionText = 'Saving...';
+            const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitButton) {
+                const buttonText = submitButton.textContent.trim() || submitButton.value;
+                if (buttonText) {
+                    actionText = buttonText.replace(/<[^>]*>/g, '').trim(); // Remove HTML tags
+                    if (actionText.length > 30) {
+                        actionText = actionText.substring(0, 30) + '...';
+                    }
+                }
+            }
+            
+            // Set text and show preloader
+            document.getElementById('preloader-text').textContent = actionText || 'Saving...';
+            const loader = document.getElementById('universal-preloader');
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        });
+        
+        // Hide preloader on page load (in case of redirect)
+        window.addEventListener('load', function() {
+            const loader = document.getElementById('universal-preloader');
+            if (loader) {
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+                document.body.style.overflow = '';
+            }
+        });
+    })();
+    </script>
+    
+    {% if ai_generating_courses %}
+    <script>
+    (function() {
+        const baseUrl = "{% url 'api_ai_generation_status' 0 %}".replace('/0/', '/');
+        document.querySelectorAll('.ai-generation-widget').forEach(function(widget) {
+            const courseId = widget.querySelector('.ai-widget-dismiss')?.dataset?.courseId;
+            if (!courseId) return;
+            const statusEl = widget.querySelector('.ai-widget-status');
+            const progressEl = widget.querySelector('.ai-widget-progress');
+            const errorEl = widget.querySelector('.ai-widget-error');
+            const dismissBtn = widget.querySelector('.ai-widget-dismiss');
+            const statusUrl = baseUrl + courseId + '/';
+
+            function hideWidget() {
+                widget.style.display = 'none';
+            }
+
+            function poll() {
+                fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'unknown') {
+                            hideWidget();
+                            return;
+                        }
+                        progressEl.style.width = (data.progress || 0) + '%';
+                        statusEl.textContent = data.current || 'Processing...';
+                        if (data.error) {
+                            errorEl.textContent = data.error;
+                            errorEl.classList.remove('hidden');
+                            statusEl.classList.add('text-red-400');
+                        }
+                        if (data.status === 'completed') {
+                            progressEl.style.width = '100%';
+                            statusEl.textContent = 'Complete!';
+                            statusEl.className = 'text-xs text-green-400 mb-2';
+                            setTimeout(hideWidget, 2500);
+                            return;
+                        }
+                        if (data.status === 'failed') {
+                            statusEl.textContent = 'Generation failed';
+                            statusEl.classList.add('text-red-400');
+                            return;
+                        }
+                        setTimeout(poll, 2500);
+                    })
+                    .catch(() => setTimeout(poll, 3000));
+            }
+
+            if (dismissBtn) dismissBtn.addEventListener('click', hideWidget);
+            poll();
+        });
+    })();
+    </script>
+    {% endif %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
