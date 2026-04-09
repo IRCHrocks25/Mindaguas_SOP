@@ -157,10 +157,16 @@ LOGIN_REDIRECT_URL = '/my-dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 
+# Cache configuration
+# Default to local memory cache so local/dev runs do not require the django_cache table.
+# To use DB cache, set CACHE_BACKEND=django.core.cache.backends.db.DatabaseCache
+# and (once) run: python manage.py createcachetable django_cache
+CACHE_BACKEND = os.getenv('CACHE_BACKEND', 'django.core.cache.backends.locmem.LocMemCache')
+
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'django_cache',
+        'BACKEND': CACHE_BACKEND,
+        'LOCATION': os.getenv('CACHE_LOCATION', 'sop-master-cache'),
         'OPTIONS': {'MAX_ENTRIES': 1000},
     }
 }

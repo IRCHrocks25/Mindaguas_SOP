@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — SOP Master</title>
+    <title>Login — StrategicAI Advisors</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -225,12 +225,12 @@
         }
         .field-input::placeholder { color: rgba(255,255,255,0.2); }
         .field-input:focus {
-            border-color: rgba(228,23,126,0.55);
-            background: rgba(228,23,126,0.04);
-            box-shadow: 0 0 0 4px rgba(228,23,126,0.08);
+            border-color: rgba(26,107,255,0.55);
+            background: rgba(26,107,255,0.04);
+            box-shadow: 0 0 0 4px rgba(26,107,255,0.08);
         }
         .field-wrap:focus-within .field-icon {
-            color: var(--pink);
+            color: var(--blue);
         }
 
         /* password toggle */
@@ -256,7 +256,7 @@
         }
         .remember-label input[type="checkbox"] {
             width: 16px; height: 16px;
-            accent-color: var(--pink);
+            accent-color: var(--blue);
             cursor: pointer;
         }
         .remember-label span { font-size: 13px; color: rgba(255,255,255,0.45); }
@@ -266,13 +266,13 @@
             text-decoration: none;
             transition: color 0.2s;
         }
-        .forgot-link:hover { color: var(--pink); }
+        .forgot-link:hover { color: var(--blue); }
 
         /* submit */
         .btn-submit {
             width: 100%;
             padding: 17px;
-            background: var(--pink);
+            background: var(--blue);
             color: #fff;
             font-family: 'Barlow', sans-serif;
             font-size: 16px; font-weight: 800;
@@ -281,7 +281,7 @@
             cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 10px;
             transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
-            box-shadow: 0 0 36px rgba(228,23,126,0.35);
+            box-shadow: 0 0 36px rgba(26,107,255,0.35);
             position: relative; overflow: hidden;
         }
         .btn-submit::before {
@@ -293,7 +293,7 @@
         }
         .btn-submit:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 48px rgba(228,23,126,0.5);
+            box-shadow: 0 8px 48px rgba(26,107,255,0.5);
         }
         .btn-submit:hover::before { transform: translateX(100%); }
         .btn-submit:active { transform: translateY(0); }
@@ -326,7 +326,7 @@
             color: rgba(255,255,255,0.6); font-weight: 600;
             text-decoration: none; transition: color 0.2s;
         }
-        .bottom-note a:hover { color: var(--pink); }
+        .bottom-note a:hover { color: var(--blue); }
 
         .security-note {
             display: flex; align-items: center; justify-content: center; gap: 7px;
@@ -375,46 +375,50 @@
             <!-- Logo -->
             <div>
                 <div class="color-bar" style="margin-bottom:20px;"></div>
-                <div class="left-logo"><img src="https://res.cloudinary.com/dcuswyfur/image/upload/v1774425507/sop_usdqk3.svg" alt="SOPMaster" style="height:50px;"></div>
+                <div class="left-logo">
+                    <span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:1px;">
+                        Strategic<span style="color:#1A6BFF;">AI</span> Advisors
+                    </span>
+                </div>
             </div>
 
             <!-- Main copy -->
             <div>
                 <h2 class="left-headline">
-                    Train Smarter.<br/>
-                    Scale <span class="accent">Faster.</span><br/>
-                    Win Bigger.
+                    Select Smarter.<br/>
+                    Pilot <span class="accent">Faster.</span><br/>
+                    Scale Bigger.
                 </h2>
                 <p class="left-sub">
-                    Your company's SOPs, transformed into a structured learning system that certifies employees and maintains excellence at every level.
+                    A structured framework for warehouse operations leaders to identify, scope, execute, and evaluate AI pilot projects — with measurable ROI at every stage.
                 </p>
 
                 <div class="left-pills">
                     <div class="pill">
-                        <div class="pill-icon pi-pink"><i class="fas fa-play"></i></div>
+                        <div class="pill-icon pi-pink"><i class="fas fa-warehouse"></i></div>
                         <div>
-                            <div class="pill-text">Automatic Progress Tracking</div>
-                            <div class="pill-sub">Resume exactly where you left off</div>
+                            <div class="pill-text">AI Pilot Selection Framework</div>
+                            <div class="pill-sub">Six-phase methodology from audit to scale</div>
                         </div>
                     </div>
                     <div class="pill">
-                        <div class="pill-icon pi-purple"><i class="fas fa-medal"></i></div>
+                        <div class="pill-icon pi-purple"><i class="fas fa-chart-line"></i></div>
                         <div>
-                            <div class="pill-text">Certifications + Trophy Tiers</div>
-                            <div class="pill-sub">Proof of completion that matters</div>
+                            <div class="pill-text">Defensible ROI at Every Gate</div>
+                            <div class="pill-sub">Go/No-Go decision criteria built in</div>
                         </div>
                     </div>
                     <div class="pill">
                         <div class="pill-icon pi-yellow"><i class="fas fa-robot"></i></div>
                         <div>
-                            <div class="pill-text">AI Chatbot Inside Lessons</div>
-                            <div class="pill-sub">In-lesson support, zero friction</div>
+                            <div class="pill-text">Proven AI Use Cases Inside</div>
+                            <div class="pill-sub">Pick-path, AMRs, forecasting & more</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="left-footer">© 2025 SOP Master. All rights reserved.</div>
+            <div class="left-footer">© 2025 StrategicAI Advisors. All rights reserved.</div>
         </div>
     </div>
 
@@ -423,7 +427,7 @@
         <div class="right-inner">
 
             <div class="right-top">
-                <div class="right-welcome">Welcome back</div>
+                <div class="right-welcome">Operations Portal</div>
                 <div class="step-indicator">
                     <div class="step-dot active"></div>
                     <div class="step-dot"></div>
@@ -432,7 +436,7 @@
             </div>
 
             <h1 class="form-title">Sign <span>In.</span></h1>
-            <p class="form-tagline">Enter your credentials to access your learning dashboard.</p>
+            <p class="form-tagline">Access your warehouse AI pilot dashboard and SOP training resources.</p>
 
             <!-- Error Messages -->
             {% if messages %}
@@ -496,7 +500,7 @@
 
                 <!-- Submit -->
                 <button type="submit" class="btn-submit" id="submitBtn">
-                    <span id="btnText">Sign In</span>
+                    <span id="btnText">Access Portal</span>
                     <i class="fas fa-arrow-right" id="btnIcon"></i>
                 </button>
             </form>
@@ -508,7 +512,7 @@
             </div>
 
             <div class="bottom-note">
-                <a href="#">Request access from your administrator</a>
+                <a href="#">Request access from your operations lead</a>
             </div>
 
             <div class="security-note">
