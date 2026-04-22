@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 import json
 import re
+import uuid
 
 
 class Course(models.Model):
@@ -32,6 +33,11 @@ class Course(models.Model):
     has_asset_templates = models.BooleanField(default=False)
     exam_unlock_days = models.IntegerField(default=120, help_text="Days after enrollment before exam unlocks")
     special_tag = models.CharField(max_length=100, blank=True, help_text="e.g., 'Black Friday 2025 Special'")
+    is_sop_program = models.BooleanField(default=False, help_text="If true, this course is treated as an SOP training program")
+    sop_guidelines = models.TextField(blank=True, help_text="Internal SOP generation guidelines provided by admins")
+    sop_full_document = models.TextField(blank=True, help_text="AI-generated full SOP document")
+    sop_video_scripts = models.JSONField(default=list, blank=True, help_text="Generated video script blocks for SOP lessons")
+    refresh_interval_days = models.IntegerField(default=90, help_text="Days before SOP refresh reminder is due")
     
     # Course Availability & Access Rules
     VISIBILITY_CHOICES = [
@@ -436,6 +442,7 @@ class Exam(models.Model):
     max_attempts = models.IntegerField(default=3, help_text="Maximum number of attempts allowed (0 = unlimited)")
     time_limit_minutes = models.IntegerField(null=True, blank=True, help_text="Time limit in minutes (null = no limit)")
     is_active = models.BooleanField(default=True)
+    is_required_for_completion = models.BooleanField(default=True, help_text="If true, passing this exam is required for SOP completion")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -532,24 +539,6 @@ class Certification(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.course.name} - {self.get_status_display()}"
 
-# ========== ACCESS CONTROL SYSTEM ==========
-
-class Cohort(models.Model):
-    """Groups of students (e.g., 'Black Friday 2025 Buyers', 'VIP Mastermind')"""
-    name = models.CharField(max_length=200, unique=True)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return self.name
-    
-    def get_member_count(self):
-        return self.members.count()
 # ========== ACCESS CONTROL SYSTEM ==========
 
 class Cohort(models.Model):
@@ -752,4 +741,155 @@ class LearningPathCourse(models.Model):
     
     def __str__(self):
         return f"{self.learning_path.name} - {self.course.name} (#{self.order})"
+
+
+class TrainingReminder(models.Model):
+    REMINDER_TYPES = [
+        ('assignment', 'Assignment'),
+        ('incomplete', 'Incomplete Training'),
+        ('exam_due', 'Exam Due'),
+        ('refresh', 'Periodic Refresh'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='training_reminders')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='training_reminders')
+    reminder_type = models.CharField(max_length=20, choices=REMINDER_TYPES)
+    due_at = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    sent_at = models.DateTimeField(null=True, blank=True)
+    sent_count = models.IntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_at']
+        indexes = [
+            models.Index(fields=['status', 'due_at']),
+            models.Index(fields=['user', 'course', 'reminder_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.course.name} - {self.get_reminder_type_display()}"
+
+
+class EmailNotificationLog(models.Model):
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+    ]
+
+    recipient_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='email_logs')
+    recipient_email = models.EmailField()
+    notification_type = models.CharField(max_length=50)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    provider = models.CharField(max_length=50, default='resend')
+    provider_message_id = models.CharField(max_length=255, blank=True)
+    error_message = models.TextField(blank=True)
+    related_course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, related_name='email_logs')
+    related_exam_attempt = models.ForeignKey(ExamAttempt, on_delete=models.SET_NULL, null=True, blank=True, related_name='email_logs')
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['notification_type', 'created_at']),
+            models.Index(fields=['recipient_email', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.recipient_email} - {self.notification_type} - {self.status}"
+
+
+class ExamResultSummary(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_result_summaries')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='exam_result_summaries')
+    exam_attempt = models.OneToOneField(ExamAttempt, on_delete=models.CASCADE, related_name='result_summary')
+    score = models.FloatField(default=0)
+    passed = models.BooleanField(default=False)
+    total_trainings_taken = models.IntegerField(default=0)
+    completed_trainings = models.IntegerField(default=0)
+    summary_text = models.TextField(blank=True)
+    data = models.JSONField(default=dict, blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-generated_at']
+        unique_together = ['user', 'course', 'exam_attempt']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.course.name} - {self.score:.1f}%"
+
+
+class EmployeePerformanceMetric(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='performance_metrics')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='performance_metrics')
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='recorded_performance_metrics')
+    metric_date = models.DateField(default=timezone.now)
+    productivity_score = models.FloatField(default=0, help_text="0-100")
+    quality_score = models.FloatField(default=0, help_text="0-100")
+    compliance_score = models.FloatField(default=0, help_text="0-100")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-metric_date', '-created_at']
+        indexes = [
+            models.Index(fields=['user', 'course', 'metric_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.course.name} - {self.metric_date}"
+
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('student', 'Student'),
+        ('hr', 'HR'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    title = models.CharField(max_length=100, blank=True, help_text="Display title, e.g. HR Manager")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['user__username']
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_role_display()})"
+
+
+class HRInvitation(models.Model):
+    invited_email = models.EmailField()
+    invited_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='hr_invitations')
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_hr_invitations')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    title = models.CharField(max_length=100, blank=True)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['invited_email', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Invitation for {self.invited_email}"
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
 

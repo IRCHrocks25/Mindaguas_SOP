@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.db.models import Count, Q
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.conf import settings
+from django.urls import reverse
 import json
 import re
 import requests
@@ -13,6 +15,7 @@ import io
 import os
 import uuid
 import threading
+from datetime import timedelta
 from django.utils import timezone
 try:
     import fitz  # PyMuPDF
@@ -43,6 +46,12 @@ from .models import (
     BundlePurchase,
     Cohort,
     CohortMember,
+    TrainingReminder,
+    EmailNotificationLog,
+    ExamResultSummary,
+    EmployeePerformanceMetric,
+    UserProfile,
+    HRInvitation,
 )
 from django.contrib import messages
 from django.core.cache import cache
@@ -50,6 +59,25 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
+from .utils.notifications import (
+    send_resend_email,
+    queue_training_assignment_and_reminders,
+    upsert_exam_result_summary,
+    dispatch_due_reminders,
+    get_user_training_summary,
+)
+
+
+def staff_or_hr_required(view_func):
+    """Allow access to staff users and users with HR role."""
+    @login_required
+    def _wrapped(request, *args, **kwargs):
+        is_hr = UserProfile.objects.filter(user=request.user, role='hr').exists()
+        if request.user.is_staff or is_hr:
+            return view_func(request, *args, **kwargs)
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('courses')
+    return _wrapped
 
 
 @staff_member_required
@@ -470,6 +498,12 @@ def dashboard_course_detail(request, course_slug):
             course.status = request.POST.get('status', course.status)
             course.course_type = request.POST.get('course_type', course.course_type)
             course.coach_name = request.POST.get('coach_name', course.coach_name)
+            course.is_sop_program = request.POST.get('is_sop_program') == 'on'
+            course.sop_guidelines = request.POST.get('sop_guidelines', course.sop_guidelines)
+            try:
+                course.refresh_interval_days = max(1, int(request.POST.get('refresh_interval_days', course.refresh_interval_days)))
+            except ValueError:
+                pass
             course.save()
             return redirect('dashboard_course_detail', course_slug=course.slug)
 
@@ -865,7 +899,7 @@ Only return valid JSON, no additional text."""
         return []
 
 
-def generate_ai_course_structure(course_name, description, course_type='sprint', coach_name='Sprint Coach'):
+def generate_ai_course_structure(course_name, description, course_type='sprint', coach_name='Sprint Coach', is_sop_program=False, sop_guidelines=''):
     """Generate complete course structure (modules and lessons) using AI"""
     if not OPENAI_AVAILABLE:
         raise Exception('OpenAI is not available. Please install the openai package.')
@@ -878,12 +912,15 @@ def generate_ai_course_structure(course_name, description, course_type='sprint',
         client = OpenAI(api_key=api_key)
         
         # Create prompt for AI
-        prompt = f"""You are an expert course creator. Based on the following course information, generate a complete course structure with modules and lessons.
+        mode_label = "SOP training program" if is_sop_program else "course"
+        prompt = f"""You are an expert {mode_label} creator. Based on the following information, generate a complete structure with modules and lessons.
 
 Course Name: {course_name}
 Course Type: {course_type}
 Coach Name: {coach_name}
 Description: {description}
+SOP Guidelines: {sop_guidelines or 'N/A'}
+Is SOP Program: {str(is_sop_program)}
 
 Generate a comprehensive course structure with:
 1. 3-6 modules (logical groupings of lessons)
@@ -891,6 +928,10 @@ Generate a comprehensive course structure with:
 3. Each lesson should have a clear title and description
 4. Lessons should progress logically from basics to advanced concepts
 5. Make it practical and actionable
+
+If Is SOP Program is true, also generate:
+- sop_full_document: full stylized SOP text,
+- sop_video_scripts: array of script blocks with title + script.
 
 Return the structure in JSON format:
 {{
@@ -907,6 +948,10 @@ Return the structure in JSON format:
         }}
       ]
     }}
+  ],
+  "sop_full_document": "Full SOP document text",
+  "sop_video_scripts": [
+    {{"title": "Sub-SOP 1 Video Script", "script": "Voiceover-ready script..."}}
   ]
 }}
 
@@ -1035,7 +1080,7 @@ def _update_ai_gen_progress(course_id, course_name, status, progress=0, total=0,
     cache.set(_get_ai_gen_cache_key(course_id), data, timeout=900)  # 15 min
 
 
-def _generate_course_ai_content(course_id, course_name, description, course_type, coach_name):
+def _generate_course_ai_content(course_id, course_name, description, course_type, coach_name, is_sop_program=False, sop_guidelines=''):
     """Background function to generate AI course content"""
     try:
         from django.db import connection
@@ -1052,8 +1097,15 @@ def _generate_course_ai_content(course_id, course_name, description, course_type
             course_name=course_name,
             description=description,
             course_type=course_type,
-            coach_name=coach_name
+            coach_name=coach_name,
+            is_sop_program=is_sop_program,
+            sop_guidelines=sop_guidelines,
         )
+
+        if is_sop_program:
+            course.sop_full_document = course_structure.get('sop_full_document', '')
+            course.sop_video_scripts = course_structure.get('sop_video_scripts', [])
+            course.save(update_fields=['sop_full_document', 'sop_video_scripts', 'updated_at'])
         
         modules_data = course_structure.get('modules', [])
         total_items = sum(1 + len(m.get('lessons', [])) for m in modules_data)  # each module + each lesson
@@ -1221,6 +1273,13 @@ def dashboard_add_course(request):
         status = request.POST.get('status', 'active')
         coach_name = request.POST.get('coach_name', 'Sprint Coach')
         use_ai = request.POST.get('use_ai') == 'on'
+        is_sop_program = request.POST.get('is_sop_program') == 'on'
+        sop_guidelines = request.POST.get('sop_guidelines', '')
+        refresh_interval_days = request.POST.get('refresh_interval_days', '90')
+        try:
+            refresh_interval_days = int(refresh_interval_days)
+        except ValueError:
+            refresh_interval_days = 90
         
         # Ensure slug is unique
         base_slug = slug
@@ -1238,6 +1297,9 @@ def dashboard_add_course(request):
             course_type=course_type,
             status=status,
             coach_name=coach_name,
+            is_sop_program=is_sop_program,
+            sop_guidelines=sop_guidelines,
+            refresh_interval_days=max(refresh_interval_days, 1),
         )
         
         # Generate course structure with AI if requested (in background)
@@ -1253,7 +1315,7 @@ def dashboard_add_course(request):
             _update_ai_gen_progress(course.id, course.name, 'starting', progress=0, current='Starting...')
             thread = threading.Thread(
                 target=_generate_course_ai_content,
-                args=(course.id, name, description, course_type, coach_name),
+                args=(course.id, name, description, course_type, coach_name, is_sop_program, sop_guidelines),
                 daemon=True
             )
             thread.start()
@@ -1985,6 +2047,16 @@ def grant_course_access_view(request, user_id):
         expires_at=expires_at,
         notes=notes
     )
+    queue_training_assignment_and_reminders(user, course)
+    if user.email:
+        send_resend_email(
+            subject=f'New SOP Training Assigned: {course.name}',
+            html=f'<p>You have been assigned <strong>{course.name}</strong>.</p><p>Please complete your training and final exam.</p>',
+            to_email=user.email,
+            notification_type='employee_training_assigned',
+            recipient_user=user,
+            related_course=course,
+        )
     
     return JsonResponse({
         'success': True,
@@ -2163,6 +2235,16 @@ def bulk_grant_access_view(request):
                             expires_at=expires_at,
                             notes=notes
                         )
+                        queue_training_assignment_and_reminders(user, course)
+                        if user.email:
+                            send_resend_email(
+                                subject=f'New SOP Training Assigned: {course.name}',
+                                html=f'<p>You have been assigned <strong>{course.name}</strong>.</p><p>Please complete your training and final exam.</p>',
+                                to_email=user.email,
+                                notification_type='employee_training_assigned',
+                                recipient_user=user,
+                                related_course=course,
+                            )
                         granted_count += 1
                 except Course.DoesNotExist:
                     continue
@@ -2496,6 +2578,382 @@ def dashboard_analytics(request):
         'drop_off_count': drop_off_count,
         'drop_off_rate': round(drop_off_rate, 1),
         'eligible_students_count': eligible_students_count,
+    })
+
+
+@staff_or_hr_required
+def dashboard_hr_training_status(request):
+    """HR view: status of trainings for each employee."""
+    users = User.objects.filter(is_staff=False, is_superuser=False).order_by('username')
+    courses = Course.objects.filter(status='active').order_by('name')
+    rows = []
+    for user in users:
+        summary = get_user_training_summary(user)
+        total_courses = len(summary)
+        fully_completed = sum(1 for r in summary if r['total_trainings'] > 0 and r['completed_trainings'] >= r['total_trainings'])
+        rows.append({
+            'user': user,
+            'summary': summary,
+            'total_courses': total_courses,
+            'fully_completed': fully_completed,
+        })
+
+    if request.GET.get('format') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="hr_training_status.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Employee', 'Email', 'Course', 'Completed Trainings', 'Total Trainings', 'Exam Score', 'Exam Passed'])
+        for row in rows:
+            for item in row['summary']:
+                writer.writerow([
+                    row['user'].username,
+                    row['user'].email,
+                    item['course_name'],
+                    item['completed_trainings'],
+                    item['total_trainings'],
+                    item['exam_score'] if item['exam_score'] is not None else '',
+                    item['exam_passed'] if item['exam_passed'] is not None else '',
+                ])
+        return response
+
+    return render(request, 'dashboard/hr_training_status.html', {
+        'rows': rows,
+        'users': users,
+        'courses': courses,
+    })
+
+
+@staff_or_hr_required
+def dashboard_hr_exam_results(request):
+    """HR view: exam results plus training summary."""
+    # Backfill summaries for any new attempts
+    for attempt in ExamAttempt.objects.select_related('exam__course', 'user').all()[:500]:
+        upsert_exam_result_summary(attempt)
+
+    summaries = ExamResultSummary.objects.select_related('user', 'course', 'exam_attempt').order_by('-generated_at')
+    return render(request, 'dashboard/hr_exam_results.html', {'summaries': summaries})
+
+
+@staff_or_hr_required
+def dashboard_course_email_report(request):
+    """Report of course-assignment emails and learner progress state."""
+    logs = EmailNotificationLog.objects.select_related('recipient_user', 'related_course').filter(
+        notification_type='employee_course_assignment_manual',
+        related_course__isnull=False,
+        recipient_user__isnull=False,
+    ).order_by('-created_at')[:500]
+
+    report_rows = []
+    for log in logs:
+        user = log.recipient_user
+        course = log.related_course
+        total_lessons = course.lessons.count()
+        completed_lessons = UserProgress.objects.filter(user=user, lesson__course=course, completed=True).count()
+        has_started = UserProgress.objects.filter(
+            user=user,
+            lesson__course=course
+        ).filter(
+            Q(video_watch_percentage__gt=0) | Q(status__in=['in_progress', 'completed']) | Q(completed=True)
+        ).exists()
+
+        if total_lessons > 0 and completed_lessons >= total_lessons:
+            status = 'Completed'
+        elif has_started:
+            status = 'In Progress'
+        else:
+            status = 'Not Started'
+
+        progress_pct = int((completed_lessons / total_lessons) * 100) if total_lessons > 0 else 0
+
+        report_rows.append({
+            'log': log,
+            'user': user,
+            'course': course,
+            'status': status,
+            'progress_pct': progress_pct,
+            'completed_lessons': completed_lessons,
+            'total_lessons': total_lessons,
+        })
+
+    return render(request, 'dashboard/course_email_report.html', {
+        'report_rows': report_rows,
+    })
+
+
+@staff_or_hr_required
+def dashboard_hr_employee_report(request, user_id):
+    """Detailed per-employee report across trainings, exams, emails, reminders, and performance."""
+    employee = get_object_or_404(User, id=user_id, is_staff=False, is_superuser=False)
+
+    enrolled_course_ids = set(CourseEnrollment.objects.filter(user=employee).values_list('course_id', flat=True))
+    access_course_ids = set(
+        CourseAccess.objects.filter(user=employee, status='unlocked').values_list('course_id', flat=True)
+    )
+    progress_course_ids = set(
+        UserProgress.objects.filter(user=employee).values_list('lesson__course_id', flat=True).distinct()
+    )
+    all_course_ids = enrolled_course_ids | access_course_ids | progress_course_ids
+
+    course_rows = []
+    if all_course_ids:
+        for course in Course.objects.filter(id__in=all_course_ids).order_by('name'):
+            total_lessons = course.lessons.count()
+            completed_lessons = UserProgress.objects.filter(
+                user=employee, lesson__course=course, completed=True
+            ).count()
+            has_started = UserProgress.objects.filter(
+                user=employee,
+                lesson__course=course
+            ).filter(
+                Q(video_watch_percentage__gt=0) | Q(status__in=['in_progress', 'completed']) | Q(completed=True)
+            ).exists()
+            latest_attempt = ExamAttempt.objects.filter(user=employee, exam__course=course).order_by('-started_at').first()
+            latest_summary = ExamResultSummary.objects.filter(user=employee, course=course).order_by('-generated_at').first()
+
+            if total_lessons > 0 and completed_lessons >= total_lessons:
+                learning_status = 'Completed'
+            elif has_started:
+                learning_status = 'In Progress'
+            else:
+                learning_status = 'Not Started'
+
+            progress_pct = int((completed_lessons / total_lessons) * 100) if total_lessons > 0 else 0
+            course_rows.append({
+                'course': course,
+                'learning_status': learning_status,
+                'progress_pct': progress_pct,
+                'completed_lessons': completed_lessons,
+                'total_lessons': total_lessons,
+                'latest_exam_attempt': latest_attempt,
+                'latest_exam_summary': latest_summary,
+            })
+
+    email_logs = EmailNotificationLog.objects.filter(recipient_user=employee).order_by('-created_at')[:50]
+    reminders = TrainingReminder.objects.filter(user=employee).select_related('course').order_by('-due_at')[:50]
+    performance_metrics = EmployeePerformanceMetric.objects.filter(user=employee).select_related('course', 'recorded_by').order_by('-metric_date')[:30]
+    recent_progress = UserProgress.objects.filter(user=employee).select_related('lesson', 'lesson__course').order_by('-last_accessed')[:50]
+    assignable_courses = Course.objects.filter(status='active').order_by('name')
+
+    return render(request, 'dashboard/hr_employee_report.html', {
+        'employee': employee,
+        'course_rows': course_rows,
+        'email_logs': email_logs,
+        'reminders': reminders,
+        'performance_metrics': performance_metrics,
+        'recent_progress': recent_progress,
+        'assignable_courses': assignable_courses,
+    })
+
+
+@staff_or_hr_required
+@require_http_methods(["GET", "POST"])
+def dashboard_performance_correlation(request):
+    """Manual performance entry + correlation with training and exam outcomes."""
+    courses = Course.objects.order_by('name')
+    users = User.objects.filter(is_staff=False, is_superuser=False).order_by('username')
+
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        course_id = request.POST.get('course_id')
+        if user_id and course_id:
+            EmployeePerformanceMetric.objects.create(
+                user_id=user_id,
+                course_id=course_id,
+                recorded_by=request.user,
+                metric_date=request.POST.get('metric_date') or timezone.now().date(),
+                productivity_score=float(request.POST.get('productivity_score') or 0),
+                quality_score=float(request.POST.get('quality_score') or 0),
+                compliance_score=float(request.POST.get('compliance_score') or 0),
+                notes=request.POST.get('notes', ''),
+            )
+            messages.success(request, 'Performance metric added.')
+        return redirect('dashboard_performance_correlation')
+
+    correlations = []
+    metrics = EmployeePerformanceMetric.objects.select_related('user', 'course').order_by('-metric_date')[:300]
+    for metric in metrics:
+        latest_attempt = ExamAttempt.objects.filter(user=metric.user, exam__course=metric.course).order_by('-started_at').first()
+        total_lessons = metric.course.lessons.count()
+        completed_lessons = UserProgress.objects.filter(user=metric.user, lesson__course=metric.course, completed=True).count()
+        training_completion_pct = (completed_lessons / total_lessons * 100) if total_lessons else 0
+        performance_avg = (metric.productivity_score + metric.quality_score + metric.compliance_score) / 3
+        correlations.append({
+            'metric': metric,
+            'exam_score': latest_attempt.score if latest_attempt else None,
+            'exam_passed': latest_attempt.passed if latest_attempt else None,
+            'training_completion_pct': round(training_completion_pct, 1),
+            'performance_avg': round(performance_avg, 1),
+            'gap': round(performance_avg - training_completion_pct, 1),
+        })
+
+    return render(request, 'dashboard/performance_correlation.html', {
+        'courses': courses,
+        'users': users,
+        'correlations': correlations,
+    })
+
+
+@staff_or_hr_required
+@require_http_methods(["POST"])
+def dashboard_dispatch_reminders(request):
+    """Trigger reminder dispatch manually from dashboard."""
+    result = dispatch_due_reminders(limit=500)
+    messages.success(request, f"Processed reminders: {result['processed']} (sent={result['sent']}, failed={result['failed']})")
+    return redirect('dashboard_hr_training_status')
+
+
+@staff_or_hr_required
+@require_http_methods(["POST"])
+def dashboard_send_hr_digests(request):
+    """Send HR digest emails with employee training and exam status."""
+    recipients = settings.HR_REPORT_EMAILS
+    if not recipients:
+        messages.error(request, 'No HR_REPORT_EMAILS configured in environment.')
+        return redirect('dashboard_hr_training_status')
+
+    users = User.objects.filter(is_staff=False, is_superuser=False).order_by('username')
+    lines = []
+    for user in users:
+        summary = get_user_training_summary(user)
+        for item in summary:
+            lines.append(
+                f"<li><strong>{user.username}</strong> ({user.email}) - {item['course_name']}: "
+                f"{item['completed_trainings']}/{item['total_trainings']} trainings, "
+                f"exam score: {item['exam_score'] if item['exam_score'] is not None else 'N/A'}, "
+                f"passed: {item['exam_passed'] if item['exam_passed'] is not None else 'N/A'}</li>"
+            )
+
+    html = "<p>Current SOP training status report:</p><ul>" + "".join(lines[:1000]) + "</ul>"
+    sent_count = 0
+    for email in recipients:
+        ok, _ = send_resend_email(
+            subject='SOP Training Status Digest',
+            html=html,
+            to_email=email,
+            notification_type='hr_training_status_digest',
+        )
+        if ok:
+            sent_count += 1
+    messages.success(request, f'HR digest sent to {sent_count}/{len(recipients)} recipients.')
+    return redirect('dashboard_hr_training_status')
+
+
+@staff_or_hr_required
+@require_http_methods(["POST"])
+def dashboard_send_course_assignment_email(request):
+    """Send a specific course assignment email to a selected employee."""
+    user_id = request.POST.get('user_id')
+    course_id = request.POST.get('course_id')
+    if not user_id or not course_id:
+        messages.error(request, 'Please select both employee and course.')
+        return redirect('dashboard_hr_training_status')
+
+    user = get_object_or_404(User, id=user_id, is_staff=False, is_superuser=False)
+    course = get_object_or_404(Course, id=course_id)
+
+    if not user.email:
+        messages.error(request, f'{user.username} does not have an email address.')
+        return redirect('dashboard_hr_training_status')
+
+    course_url = request.build_absolute_uri(reverse('course_detail', args=[course.slug]))
+    html = (
+        f"<p>Hello {user.username},</p>"
+        f"<p>You have been assigned the SOP training course: <strong>{course.name}</strong>.</p>"
+        f"<p>Please start your training here: <a href='{course_url}'>{course_url}</a></p>"
+        f"<p>After completing the lessons, please take the final exam.</p>"
+    )
+    ok, _ = send_resend_email(
+        subject=f'Please complete SOP training: {course.name}',
+        html=html,
+        to_email=user.email,
+        notification_type='employee_course_assignment_manual',
+        recipient_user=user,
+        related_course=course,
+    )
+
+    if ok:
+        messages.success(request, f'Course assignment email sent to {user.email}.')
+    else:
+        messages.error(request, f'Failed to send email to {user.email}. Check EmailNotificationLog for details.')
+    return redirect('dashboard_hr_training_status')
+
+
+def _username_from_email(email):
+    base = (email.split('@')[0] or 'hr').lower()
+    candidate = re.sub(r'[^a-z0-9_]+', '_', base).strip('_') or 'hr'
+    username = candidate
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{candidate}_{counter}"
+        counter += 1
+    return username
+
+
+@staff_member_required
+@require_http_methods(["GET", "POST"])
+def dashboard_hr_accounts(request):
+    """Super admin creates HR accounts and sends invitation email."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Only super admin can create HR accounts.')
+        return redirect('dashboard_home')
+
+    if request.method == 'POST':
+        email = (request.POST.get('email') or '').strip().lower()
+        title = (request.POST.get('title') or '').strip()
+        if not email:
+            messages.error(request, 'Email is required.')
+            return redirect('dashboard_hr_accounts')
+
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            user = User.objects.create_user(
+                username=_username_from_email(email),
+                email=email,
+                password=User.objects.make_random_password(),
+                is_active=False,
+            )
+        else:
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.role = 'hr'
+        profile.title = title
+        profile.save()
+
+        invite = HRInvitation.objects.create(
+            invited_email=email,
+            invited_user=user,
+            invited_by=request.user,
+            title=title,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        accept_url = request.build_absolute_uri(reverse('accept_hr_invitation', args=[invite.token]))
+        html = (
+            f"<p>You have been invited to join SOP Master as HR.</p>"
+            f"<p><strong>Title:</strong> {title or 'HR'}</p>"
+            f"<p>Please accept your invitation and set your password: "
+            f"<a href='{accept_url}'>{accept_url}</a></p>"
+            f"<p>This link expires in 7 days.</p>"
+        )
+        ok, _ = send_resend_email(
+            subject='You are invited as HR on SOP Master',
+            html=html,
+            to_email=email,
+            notification_type='hr_invitation',
+            recipient_user=user,
+        )
+        if ok:
+            messages.success(request, f'Invitation sent to {email}.')
+        else:
+            messages.warning(request, f'HR account created for {email}, but invitation email failed.')
+        return redirect('dashboard_hr_accounts')
+
+    hr_profiles = UserProfile.objects.filter(role='hr').select_related('user').order_by('user__username')
+    invitations = HRInvitation.objects.select_related('invited_user', 'invited_by').order_by('-created_at')[:50]
+    return render(request, 'dashboard/hr_accounts.html', {
+        'hr_profiles': hr_profiles,
+        'invitations': invitations,
     })
 
 

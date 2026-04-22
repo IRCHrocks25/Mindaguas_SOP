@@ -1,0 +1,64 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Course Email Report{% endblock %}
+{% block page_title %}Course Email Report{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold mb-1">Course Emails Sent vs Training Status</h2>
+    <p class="text-gray-400 text-sm">Tracks course-assignment emails and whether each employee has started or completed the course.</p>
+</div>
+
+<div class="overflow-x-auto bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl">
+    <table class="w-full text-sm">
+        <thead class="text-gray-400 border-b border-cyan-electric/10">
+            <tr>
+                <th class="text-left py-3 px-4">Sent At</th>
+                <th class="text-left py-3 px-4">Employee</th>
+                <th class="text-left py-3 px-4">Email</th>
+                <th class="text-left py-3 px-4">Course</th>
+                <th class="text-left py-3 px-4">Delivery</th>
+                <th class="text-left py-3 px-4">Training Status</th>
+                <th class="text-left py-3 px-4">Progress</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in report_rows %}
+            <tr class="border-b border-cyan-electric/10">
+                <td class="py-3 px-4">{{ row.log.created_at|date:"M d, Y H:i" }}</td>
+                <td class="py-3 px-4">
+                    <a href="{% url 'dashboard_hr_employee_report' row.user.id %}" class="text-cyan-electric hover:underline">
+                        {{ row.user.username }}
+                    </a>
+                </td>
+                <td class="py-3 px-4">{{ row.user.email }}</td>
+                <td class="py-3 px-4">{{ row.course.name }}</td>
+                <td class="py-3 px-4">
+                    {% if row.log.status == 'sent' %}
+                    <span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">Sent</span>
+                    {% elif row.log.status == 'failed' %}
+                    <span class="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">Failed</span>
+                    {% else %}
+                    <span class="px-2 py-1 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">{{ row.log.status|title }}</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4">
+                    {% if row.status == 'Completed' %}
+                    <span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">{{ row.status }}</span>
+                    {% elif row.status == 'In Progress' %}
+                    <span class="px-2 py-1 rounded bg-cyan-electric/20 text-cyan-electric border border-cyan-electric/30">{{ row.status }}</span>
+                    {% else %}
+                    <span class="px-2 py-1 rounded bg-gray-500/20 text-gray-300 border border-gray-500/30">{{ row.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4">{{ row.completed_lessons }}/{{ row.total_lessons }} ({{ row.progress_pct }}%)</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="py-4 px-4 text-gray-400">No course assignment emails found yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

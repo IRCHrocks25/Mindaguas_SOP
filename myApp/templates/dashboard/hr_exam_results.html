@@ -1,0 +1,45 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}HR Exam Results{% endblock %}
+{% block page_title %}HR Exam Results{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold mb-1">Employee Exam Results + Training Summary</h2>
+    <p class="text-gray-400 text-sm">Final exam outcomes aligned with completed SOP trainings.</p>
+</div>
+
+<div class="overflow-x-auto bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl">
+    <table class="w-full text-sm">
+        <thead class="text-gray-400 border-b border-cyan-electric/10">
+            <tr>
+                <th class="text-left py-3 px-4">Employee</th>
+                <th class="text-left py-3 px-4">Course</th>
+                <th class="text-left py-3 px-4">Score</th>
+                <th class="text-left py-3 px-4">Passed</th>
+                <th class="text-left py-3 px-4">Trainings</th>
+                <th class="text-left py-3 px-4">Generated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in summaries %}
+            <tr class="border-b border-cyan-electric/10">
+                <td class="py-3 px-4">
+                    <a href="{% url 'dashboard_hr_employee_report' item.user.id %}" class="text-cyan-electric hover:underline">
+                        {{ item.user.username }}
+                    </a>
+                    <div class="text-xs text-gray-500">{{ item.user.email }}</div>
+                </td>
+                <td class="py-3 px-4">{{ item.course.name }}</td>
+                <td class="py-3 px-4">{{ item.score|floatformat:1 }}%</td>
+                <td class="py-3 px-4">{% if item.passed %}Yes{% else %}No{% endif %}</td>
+                <td class="py-3 px-4">{{ item.completed_trainings }}/{{ item.total_trainings_taken }}</td>
+                <td class="py-3 px-4">{{ item.generated_at|date:"M d, Y H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="py-4 px-4 text-gray-400">No exam summaries available yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

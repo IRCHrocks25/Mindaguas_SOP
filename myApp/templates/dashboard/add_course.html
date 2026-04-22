@@ -72,6 +72,27 @@
                     <label class="block text-sm font-semibold mb-2">AI Coach Name</label>
                     <input type="text" name="coach_name" value="Sprint Coach" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-electric/50" placeholder="e.g., Sprint Coach">
                 </div>
+
+                <div class="bg-[#0a0e27]/30 border border-purple-accent/20 rounded-lg p-4 space-y-4">
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" name="is_sop_program" id="is_sop_program" class="mt-1 w-5 h-5 text-purple-accent bg-[#0a0e27]/40 border-purple-accent/30 rounded focus:ring-purple-accent focus:ring-2">
+                        <div class="flex-1">
+                            <label for="is_sop_program" class="block text-sm font-semibold mb-1 cursor-pointer">
+                                <i class="fas fa-clipboard-check mr-2 text-purple-accent"></i>
+                                Treat this as SOP Program
+                            </label>
+                            <p class="text-xs text-gray-400">Enables SOP-specific generation: full SOP, sub-SOP lessons, and video scripts.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">SOP Guidelines (optional)</label>
+                        <textarea name="sop_guidelines" rows="4" class="w-full bg-[#0a0e27]/40 border border-purple-accent/20 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-accent/50 resize-none" placeholder="Write your internal SOP style guide, rules, brand voice, compliance notes, and required process structure..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Refresh Reminder Interval (days)</label>
+                        <input type="number" name="refresh_interval_days" min="1" value="90" class="w-full bg-[#0a0e27]/40 border border-purple-accent/20 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-accent/50">
+                    </div>
+                </div>
                 
                 <div class="flex gap-4 pt-4">
                     <button type="submit" id="submit-btn" class="flex-1 px-6 py-3 bg-cyan-electric text-[#0a0e27] rounded-full font-bold hover:bg-cyan-electric/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">

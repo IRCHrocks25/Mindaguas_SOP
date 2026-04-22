@@ -1,0 +1,88 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Performance Correlation{% endblock %}
+{% block page_title %}Performance Correlation{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="lg:col-span-1 bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+        <h3 class="text-lg font-semibold mb-4">Add Performance Metric</h3>
+        <form method="POST" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="text-sm block mb-1">Employee</label>
+                <select name="user_id" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+                    <option value="">Select employee</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }} ({{ user.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-sm block mb-1">Course / SOP Program</label>
+                <select name="course_id" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+                    <option value="">Select course</option>
+                    {% for course in courses %}
+                    <option value="{{ course.id }}">{{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="text-xs block mb-1">Productivity</label>
+                    <input type="number" step="0.1" min="0" max="100" name="productivity_score" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded px-2 py-2">
+                </div>
+                <div>
+                    <label class="text-xs block mb-1">Quality</label>
+                    <input type="number" step="0.1" min="0" max="100" name="quality_score" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded px-2 py-2">
+                </div>
+                <div>
+                    <label class="text-xs block mb-1">Compliance</label>
+                    <input type="number" step="0.1" min="0" max="100" name="compliance_score" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded px-2 py-2">
+                </div>
+            </div>
+            <div>
+                <label class="text-sm block mb-1">Metric Date</label>
+                <input type="date" name="metric_date" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+            </div>
+            <div>
+                <label class="text-sm block mb-1">Notes</label>
+                <textarea name="notes" rows="3" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2"></textarea>
+            </div>
+            <button type="submit" class="w-full px-4 py-2 bg-cyan-electric text-[#0a0e27] rounded-lg font-semibold">Save Metric</button>
+        </form>
+    </div>
+
+    <div class="lg:col-span-2 bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+        <h3 class="text-lg font-semibold mb-4">Training/Exam vs Performance</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="text-gray-400 border-b border-cyan-electric/10">
+                    <tr>
+                        <th class="text-left py-2">Employee</th>
+                        <th class="text-left py-2">Course</th>
+                        <th class="text-left py-2">Training Completion</th>
+                        <th class="text-left py-2">Exam</th>
+                        <th class="text-left py-2">Performance Avg</th>
+                        <th class="text-left py-2">Gap</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in correlations %}
+                    <tr class="border-b border-cyan-electric/10">
+                        <td class="py-2">{{ row.metric.user.username }}</td>
+                        <td class="py-2">{{ row.metric.course.name }}</td>
+                        <td class="py-2">{{ row.training_completion_pct }}%</td>
+                        <td class="py-2">{% if row.exam_score != None %}{{ row.exam_score|floatformat:1 }}%{% else %}-{% endif %}</td>
+                        <td class="py-2">{{ row.performance_avg }}%</td>
+                        <td class="py-2">{{ row.gap }}%</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="py-3 text-gray-400">No correlation data yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

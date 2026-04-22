@@ -170,3 +170,8 @@ CACHES = {
         'OPTIONS': {'MAX_ENTRIES': 1000},
     }
 }
+
+# Resend email integration
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', os.getenv('RESEND_FROM', ''))
+HR_REPORT_EMAILS = [e.strip() for e in os.getenv('HR_REPORT_EMAILS', '').split(',') if e.strip()]

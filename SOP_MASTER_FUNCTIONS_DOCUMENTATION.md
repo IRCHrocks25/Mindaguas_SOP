@@ -21,6 +21,15 @@ This document inventories the current Python functions and methods in the SOP Ma
 - `transcribe_video(video_file_path)`
 - `extract_audio_from_video(video_path, audio_path)`
 
+## `myApp/utils/notifications.py`
+
+- `send_resend_email(subject, html, to_email, notification_type, recipient_user=None, related_course=None, related_exam_attempt=None)`
+- `upsert_exam_result_summary(exam_attempt)`
+- `queue_training_assignment_and_reminders(user, course)`
+- `_reminder_message(reminder)`
+- `dispatch_due_reminders(limit=100)`
+- `get_user_training_summary(user)`
+
 ## `myApp/utils/access.py`
 
 - `has_course_access(user, course)`
@@ -113,6 +122,11 @@ This document inventories the current Python functions and methods in the SOP Ma
 - `bulk_access_management(request)`
 - `bulk_grant_access_view(request)`
 - `dashboard_analytics(request)`
+- `dashboard_hr_training_status(request)`
+- `dashboard_hr_exam_results(request)`
+- `dashboard_performance_correlation(request)`
+- `dashboard_dispatch_reminders(request)`
+- `dashboard_send_hr_digests(request)`
 - `generate_slug(text)`
 - `dashboard_bundles(request)`
 - `dashboard_add_bundle(request)`
@@ -231,6 +245,9 @@ This document inventories the current Python functions and methods in the SOP Ma
 ### `seed_lesson1_quiz.py`
 - `Command.handle(self, *args, **options)`
 
+### `send_training_reminders.py`
+- `Command.handle(self, *args, **options)`
+
 ### `seed_data.py`
 - `Command.add_arguments(self, parser)`
 - `Command.generate_slug(self, title)`
@@ -246,6 +263,11 @@ This document inventories the current Python functions and methods in the SOP Ma
 - `alter_slug_field(apps, schema_editor)`
 - `reverse_alter_slug_field(apps, schema_editor)`
 
+## Signals
+
+### `myApp/signals.py`
+- `handle_exam_attempt_summary_and_emails(sender, instance, created, **kwargs)`
+
 ## Notes
 
 - This is an inventory document (function map).  
@@ -254,3 +276,10 @@ This document inventories the current Python functions and methods in the SOP Ma
   - expected inputs/outputs,
   - side effects (DB/API/file I/O),
   - and endpoint URL mapping for each view function.
+
+## SOP v2 Environment Variables
+
+- `RESEND_API_KEY`: API key used for transactional email delivery.
+- `RESEND_FROM_EMAIL`: sender identity used by Resend (e.g. verified domain mailbox).
+- `HR_REPORT_EMAILS`: comma-separated HR recipient emails for status/result digests.
+- `CACHE_BACKEND` / `CACHE_LOCATION`: cache backend configuration for progress + status caching.

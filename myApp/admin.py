@@ -1,7 +1,9 @@
 from django.contrib import admin
 from .models import (
     Course, CourseResource, Module, Lesson, UserProgress, CourseEnrollment, Exam, ExamAttempt, Certification,
-    Cohort, CohortMember, Bundle, BundlePurchase, CourseAccess, LearningPath, LearningPathCourse
+    Cohort, CohortMember, Bundle, BundlePurchase, CourseAccess, LearningPath, LearningPathCourse,
+    TrainingReminder, EmailNotificationLog, ExamResultSummary, EmployeePerformanceMetric,
+    UserProfile, HRInvitation
 )
 
 
@@ -178,3 +180,49 @@ class LearningPathCourseAdmin(admin.ModelAdmin):
     list_filter = ['learning_path', 'is_required']
     search_fields = ['learning_path__name', 'course__name']
     ordering = ['learning_path', 'order']
+
+
+@admin.register(TrainingReminder)
+class TrainingReminderAdmin(admin.ModelAdmin):
+    list_display = ['user', 'course', 'reminder_type', 'due_at', 'status', 'sent_count', 'is_active']
+    list_filter = ['reminder_type', 'status', 'is_active']
+    search_fields = ['user__username', 'user__email', 'course__name']
+    readonly_fields = ['created_at', 'updated_at', 'sent_at']
+
+
+@admin.register(EmailNotificationLog)
+class EmailNotificationLogAdmin(admin.ModelAdmin):
+    list_display = ['recipient_email', 'notification_type', 'status', 'provider', 'created_at', 'sent_at']
+    list_filter = ['notification_type', 'status', 'provider']
+    search_fields = ['recipient_email', 'subject']
+    readonly_fields = ['created_at', 'sent_at']
+
+
+@admin.register(ExamResultSummary)
+class ExamResultSummaryAdmin(admin.ModelAdmin):
+    list_display = ['user', 'course', 'score', 'passed', 'completed_trainings', 'total_trainings_taken', 'generated_at']
+    list_filter = ['passed', 'course']
+    search_fields = ['user__username', 'course__name']
+    readonly_fields = ['generated_at']
+
+
+@admin.register(EmployeePerformanceMetric)
+class EmployeePerformanceMetricAdmin(admin.ModelAdmin):
+    list_display = ['user', 'course', 'metric_date', 'productivity_score', 'quality_score', 'compliance_score', 'recorded_by']
+    list_filter = ['course', 'metric_date']
+    search_fields = ['user__username', 'user__email', 'course__name']
+    readonly_fields = ['created_at']
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'role', 'title', 'created_at']
+    list_filter = ['role']
+    search_fields = ['user__username', 'user__email', 'title']
+
+
+@admin.register(HRInvitation)
+class HRInvitationAdmin(admin.ModelAdmin):
+    list_display = ['invited_email', 'invited_user', 'invited_by', 'expires_at', 'accepted_at', 'created_at']
+    list_filter = ['created_at', 'expires_at', 'accepted_at']
+    search_fields = ['invited_email', 'invited_user__username', 'invited_by__username']

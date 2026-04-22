@@ -1,0 +1,60 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}HR Dashboard{% endblock %}
+{% block page_title %}HR Dashboard{% endblock %}
+
+{% block content %}
+{% if is_superadmin_view %}
+<div class="mb-4 px-4 py-3 rounded-lg border border-purple-accent/30 bg-purple-accent/10 text-purple-accent">
+    You are viewing this page as super admin in HR mode.
+</div>
+{% endif %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+        <p class="text-gray-400 text-sm">Role</p>
+        <h3 class="text-xl font-bold">{{ profile.title|default:"HR" }}</h3>
+    </div>
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+        <p class="text-gray-400 text-sm">Employees Tracked</p>
+        <h3 class="text-xl font-bold">{{ total_employees }}</h3>
+    </div>
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+        <p class="text-gray-400 text-sm">Performance Records</p>
+        <h3 class="text-xl font-bold">{{ metrics_count }}</h3>
+    </div>
+</div>
+
+<div class="flex flex-wrap gap-3 mb-6">
+    <a href="{% url 'dashboard_hr_training_status' %}" class="px-4 py-2 border border-cyan-electric/30 rounded-lg hover:bg-cyan-electric/10 transition-all">Training Status</a>
+    <a href="{% url 'dashboard_hr_exam_results' %}" class="px-4 py-2 border border-cyan-electric/30 rounded-lg hover:bg-cyan-electric/10 transition-all">Exam Results</a>
+    <a href="{% url 'dashboard_performance_correlation' %}" class="px-4 py-2 border border-cyan-electric/30 rounded-lg hover:bg-cyan-electric/10 transition-all">Performance Correlation</a>
+</div>
+
+<div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+    <h3 class="font-bold mb-3">Latest Exam Summaries</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-gray-400 border-b border-cyan-electric/10">
+                <tr>
+                    <th class="text-left py-2">Employee</th>
+                    <th class="text-left py-2">Course</th>
+                    <th class="text-left py-2">Score</th>
+                    <th class="text-left py-2">Passed</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in training_summaries %}
+                <tr class="border-b border-cyan-electric/10">
+                    <td class="py-2">{{ row.user.username }}</td>
+                    <td class="py-2">{{ row.course.name }}</td>
+                    <td class="py-2">{{ row.score|floatformat:1 }}%</td>
+                    <td class="py-2">{% if row.passed %}Yes{% else %}No{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="py-3 text-gray-400">No exam summaries yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

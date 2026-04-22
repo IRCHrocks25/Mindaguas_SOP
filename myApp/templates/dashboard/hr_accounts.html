@@ -1,0 +1,69 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}HR Accounts{% endblock %}
+{% block page_title %}HR Accounts{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4">Invite New HR Account</h2>
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-semibold mb-1">Email</label>
+                <input type="email" name="email" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold mb-1">Title</label>
+                <input type="text" name="title" placeholder="HR Manager" class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+            </div>
+            <button type="submit" class="w-full py-2 rounded-lg bg-cyan-electric text-[#0a0e27] font-semibold hover:bg-cyan-electric/90 transition-all">Create + Send Invitation</button>
+        </form>
+    </div>
+
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4">Current HR Profiles</h2>
+        <div class="space-y-2 max-h-80 overflow-auto">
+            {% for profile in hr_profiles %}
+            <div class="p-3 rounded-lg border border-cyan-electric/10 bg-[#0a0e27]/40">
+                <div class="font-semibold">{{ profile.user.username }}</div>
+                <div class="text-sm text-gray-400">{{ profile.user.email }}</div>
+                <div class="text-xs text-purple-300 mt-1">{{ profile.title|default:"HR" }}</div>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">No HR profiles yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="mt-6 bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+    <h2 class="text-xl font-bold mb-4">Recent Invitations</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-gray-400 border-b border-cyan-electric/10">
+                <tr>
+                    <th class="text-left py-2">Email</th>
+                    <th class="text-left py-2">Title</th>
+                    <th class="text-left py-2">Sent By</th>
+                    <th class="text-left py-2">Expires</th>
+                    <th class="text-left py-2">Accepted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invite in invitations %}
+                <tr class="border-b border-cyan-electric/10">
+                    <td class="py-2">{{ invite.invited_email }}</td>
+                    <td class="py-2">{{ invite.title|default:"HR" }}</td>
+                    <td class="py-2">{{ invite.invited_by.username|default:"-" }}</td>
+                    <td class="py-2">{{ invite.expires_at|date:"M d, Y H:i" }}</td>
+                    <td class="py-2">{% if invite.accepted_at %}{{ invite.accepted_at|date:"M d, Y H:i" }}{% else %}<span class="text-yellow-300">Pending</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="py-3 text-gray-400">No invitations yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}HR Training Status{% endblock %}
+{% block page_title %}HR Training Status{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h2 class="text-2xl font-bold mb-1">Employee SOP Training Status</h2>
+        <p class="text-gray-400 text-sm">Track completion status and trigger reminders/digests.</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="?format=csv" class="px-4 py-2 border border-cyan-electric/30 rounded-lg hover:bg-cyan-electric/10 transition-all">Export CSV</a>
+        <form method="POST" action="{% url 'dashboard_dispatch_reminders' %}">
+            {% csrf_token %}
+            <button type="submit" class="px-4 py-2 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/10 transition-all">Send Due Reminders</button>
+        </form>
+        <form method="POST" action="{% url 'dashboard_send_hr_digests' %}">
+            {% csrf_token %}
+            <button type="submit" class="px-4 py-2 bg-cyan-electric text-[#0a0e27] rounded-lg font-semibold hover:bg-cyan-electric/90 transition-all">Email HR Digest</button>
+        </form>
+    </div>
+</div>
+
+<div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5 mb-6">
+    <h3 class="text-lg font-semibold mb-3">Send Specific Course Assignment</h3>
+    <form method="POST" action="{% url 'dashboard_send_course_assignment_email' %}" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {% csrf_token %}
+        <select name="user_id" required class="bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+            <option value="">Select employee</option>
+            {% for user_item in users %}
+            <option value="{{ user_item.id }}">{{ user_item.username }} ({{ user_item.email }})</option>
+            {% endfor %}
+        </select>
+        <select name="course_id" required class="bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+            <option value="">Select course</option>
+            {% for course in courses %}
+            <option value="{{ course.id }}">{{ course.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2 bg-purple-accent text-white rounded-lg font-semibold hover:bg-purple-accent/90 transition-all">
+            Send Course Email
+        </button>
+    </form>
+</div>
+
+<div class="space-y-4">
+    {% for row in rows %}
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h3 class="text-lg font-semibold">
+                    <a href="{% url 'dashboard_hr_employee_report' row.user.id %}" class="text-cyan-electric hover:underline">
+                        {{ row.user.username }}
+                    </a>
+                </h3>
+                <p class="text-gray-400 text-sm">{{ row.user.email }}</p>
+            </div>
+            <div class="text-sm text-gray-300">{{ row.fully_completed }}/{{ row.total_courses }} completed</div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="text-gray-400">
+                    <tr>
+                        <th class="text-left py-2">Course</th>
+                        <th class="text-left py-2">Trainings</th>
+                        <th class="text-left py-2">Exam Score</th>
+                        <th class="text-left py-2">Exam Passed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in row.summary %}
+                    <tr class="border-t border-cyan-electric/10">
+                        <td class="py-2">{{ item.course_name }}</td>
+                        <td class="py-2">{{ item.completed_trainings }}/{{ item.total_trainings }}</td>
+                        <td class="py-2">{% if item.exam_score != None %}{{ item.exam_score|floatformat:1 }}%{% else %}-{% endif %}</td>
+                        <td class="py-2">{% if item.exam_passed == True %}Yes{% elif item.exam_passed == False %}No{% else %}-{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="py-2 text-gray-500">No courses assigned.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-gray-400">No employee records found.</p>
+    {% endfor %}
+</div>
+{% endblock %}

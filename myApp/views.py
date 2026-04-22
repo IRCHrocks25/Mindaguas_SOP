@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
@@ -24,6 +25,10 @@ from .models import (
     LessonQuiz,
     LessonQuizQuestion,
     LessonQuizAttempt,
+    UserProfile,
+    HRInvitation,
+    ExamResultSummary,
+    EmployeePerformanceMetric,
 )
 from django.db.models import Avg, Count, Q
 from django.db import models
@@ -37,12 +42,21 @@ def home(request):
     return render(request, 'landing.html')
 
 
+def _post_login_redirect_name(user):
+    if user.is_staff:
+        return 'dashboard_home'
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    if profile.role == 'hr':
+        return 'hr_dashboard'
+    return 'courses'
+
+
 def login_view(request):
     """Premium login page"""
     # Allow access to login page even when logged in if ?force=true (for testing)
     force = request.GET.get('force', '').lower() == 'true'
     if request.user.is_authenticated and not force:
-        return redirect('courses')
+        return redirect(_post_login_redirect_name(request.user))
     
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -51,7 +65,7 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            next_url = request.GET.get('next', 'courses')
+            next_url = request.GET.get('next', _post_login_redirect_name(user))
             return redirect(next_url)
         else:
             messages.error(request, 'Invalid username or password.')
@@ -64,6 +78,75 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('login')
+
+
+def accept_hr_invitation(request, token):
+    """Accept HR invitation and set account password."""
+    invitation = get_object_or_404(HRInvitation, token=token)
+    if invitation.accepted_at:
+        messages.info(request, 'This invitation has already been accepted.')
+        return redirect('login')
+    if invitation.is_expired():
+        messages.error(request, 'This invitation has expired. Please request a new invitation.')
+        return redirect('login')
+
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        password_confirm = request.POST.get('password_confirm', '')
+        if len(password) < 8:
+            messages.error(request, 'Password must be at least 8 characters long.')
+            return render(request, 'accept_hr_invitation.html', {'invitation': invitation})
+        if password != password_confirm:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'accept_hr_invitation.html', {'invitation': invitation})
+
+        user = invitation.invited_user
+        if not user:
+            messages.error(request, 'Invitation is not linked to a user account.')
+            return redirect('login')
+
+        user.set_password(password)
+        user.is_active = True
+        user.save(update_fields=['password', 'is_active'])
+
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.role = 'hr'
+        if invitation.title and not profile.title:
+            profile.title = invitation.title
+        profile.save()
+
+        invitation.accepted_at = timezone.now()
+        invitation.save(update_fields=['accepted_at'])
+
+        login(request, user)
+        messages.success(request, 'Welcome to SOP Master. Your HR account is now active.')
+        return redirect('hr_dashboard')
+
+    return render(request, 'accept_hr_invitation.html', {'invitation': invitation})
+
+
+@login_required
+def hr_dashboard(request):
+    """Dedicated dashboard for HR role."""
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if profile.role != 'hr' and not request.user.is_staff:
+        messages.error(request, 'You do not have HR access.')
+        return redirect('courses')
+
+    users = User.objects.filter(is_staff=False, is_superuser=False)
+    total_employees = users.count()
+    training_summaries = ExamResultSummary.objects.select_related('user', 'course').order_by('-generated_at')[:20]
+    metrics_count = EmployeePerformanceMetric.objects.count()
+
+    is_superadmin_view = bool(request.user.is_superuser)
+
+    return render(request, 'hr/dashboard.html', {
+        'profile': profile,
+        'total_employees': total_employees,
+        'training_summaries': training_summaries,
+        'metrics_count': metrics_count,
+        'is_superadmin_view': is_superadmin_view,
+    })
 
 
 def courses(request):

@@ -1,0 +1,160 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Employee Report{% endblock %}
+{% block page_title %}Employee Report{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% url 'dashboard_hr_training_status' %}" class="text-cyan-electric hover:underline text-sm">
+        <i class="fas fa-arrow-left mr-1"></i> Back to HR Training Status
+    </a>
+</div>
+
+<div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6 mb-6">
+    <h2 class="text-2xl font-bold">{{ employee.username }}</h2>
+    <p class="text-gray-400">{{ employee.email }}</p>
+    <p class="text-xs text-gray-500 mt-1">Joined: {{ employee.date_joined|date:"M d, Y H:i" }}</p>
+</div>
+
+<div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6 mb-6">
+    <h3 class="text-xl font-semibold mb-3">Send Course Assignment Email</h3>
+    <form method="POST" action="{% url 'dashboard_send_course_assignment_email' %}" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="user_id" value="{{ employee.id }}">
+        <div class="md:col-span-2">
+            <select name="course_id" required class="w-full bg-[#0a0e27]/40 border border-cyan-electric/20 rounded-lg px-3 py-2">
+                <option value="">Select course to assign</option>
+                {% for course in assignable_courses %}
+                <option value="{{ course.id }}">{{ course.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-purple-accent text-white rounded-lg font-semibold hover:bg-purple-accent/90 transition-all">
+            Send Course Email
+        </button>
+    </form>
+</div>
+
+<div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6 mb-6">
+    <h3 class="text-xl font-semibold mb-4">Course & Learning Overview</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-gray-400 border-b border-cyan-electric/10">
+                <tr>
+                    <th class="text-left py-2">Course</th>
+                    <th class="text-left py-2">Learning Status</th>
+                    <th class="text-left py-2">Progress</th>
+                    <th class="text-left py-2">Latest Exam</th>
+                    <th class="text-left py-2">Exam Summary</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in course_rows %}
+                <tr class="border-b border-cyan-electric/10">
+                    <td class="py-2">{{ row.course.name }}</td>
+                    <td class="py-2">
+                        {% if row.learning_status == 'Completed' %}
+                        <span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">{{ row.learning_status }}</span>
+                        {% elif row.learning_status == 'In Progress' %}
+                        <span class="px-2 py-1 rounded bg-cyan-electric/20 text-cyan-electric border border-cyan-electric/30">{{ row.learning_status }}</span>
+                        {% else %}
+                        <span class="px-2 py-1 rounded bg-gray-500/20 text-gray-300 border border-gray-500/30">{{ row.learning_status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2">{{ row.completed_lessons }}/{{ row.total_lessons }} ({{ row.progress_pct }}%)</td>
+                    <td class="py-2">
+                        {% if row.latest_exam_attempt %}
+                            {{ row.latest_exam_attempt.score|floatformat:1 }}% ({% if row.latest_exam_attempt.passed %}Passed{% else %}Failed{% endif %})
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="py-2">
+                        {% if row.latest_exam_summary %}
+                            {{ row.latest_exam_summary.generated_at|date:"M d, Y H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="py-3 text-gray-400">No courses associated yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+        <h3 class="text-xl font-semibold mb-4">Email Activity</h3>
+        <div class="space-y-2 max-h-80 overflow-auto">
+            {% for log in email_logs %}
+            <div class="p-3 rounded border border-cyan-electric/10 bg-[#0a0e27]/40">
+                <div class="text-sm font-medium">{{ log.notification_type }}</div>
+                <div class="text-xs text-gray-400">{{ log.created_at|date:"M d, Y H:i" }} • {{ log.status|title }}</div>
+                <div class="text-xs text-gray-500">{{ log.subject|truncatechars:100 }}</div>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">No emails logged for this employee.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+        <h3 class="text-xl font-semibold mb-4">Reminder Activity</h3>
+        <div class="space-y-2 max-h-80 overflow-auto">
+            {% for reminder in reminders %}
+            <div class="p-3 rounded border border-cyan-electric/10 bg-[#0a0e27]/40">
+                <div class="text-sm font-medium">{{ reminder.get_reminder_type_display }} • {{ reminder.course.name }}</div>
+                <div class="text-xs text-gray-400">Due {{ reminder.due_at|date:"M d, Y H:i" }} • {{ reminder.status|title }}</div>
+                {% if reminder.last_error %}
+                <div class="text-xs text-red-300">{{ reminder.last_error|truncatechars:120 }}</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">No reminders logged for this employee.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+        <h3 class="text-xl font-semibold mb-4">Performance Metrics</h3>
+        <div class="space-y-2 max-h-80 overflow-auto">
+            {% for metric in performance_metrics %}
+            <div class="p-3 rounded border border-cyan-electric/10 bg-[#0a0e27]/40">
+                <div class="text-sm font-medium">{{ metric.course.name }} • {{ metric.metric_date|date:"M d, Y" }}</div>
+                <div class="text-xs text-gray-300">
+                    Productivity: {{ metric.productivity_score|floatformat:1 }} |
+                    Quality: {{ metric.quality_score|floatformat:1 }} |
+                    Compliance: {{ metric.compliance_score|floatformat:1 }}
+                </div>
+                {% if metric.notes %}
+                <div class="text-xs text-gray-500">{{ metric.notes|truncatechars:120 }}</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">No performance metrics recorded.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-[#0a0e27]/60 border border-cyan-electric/10 rounded-xl p-6">
+        <h3 class="text-xl font-semibold mb-4">Recent Learning Activity</h3>
+        <div class="space-y-2 max-h-80 overflow-auto">
+            {% for p in recent_progress %}
+            <div class="p-3 rounded border border-cyan-electric/10 bg-[#0a0e27]/40">
+                <div class="text-sm font-medium">{{ p.lesson.course.name }} → {{ p.lesson.title }}</div>
+                <div class="text-xs text-gray-400">
+                    {{ p.status|title }} • Watched {{ p.video_watch_percentage|floatformat:1 }}% • {{ p.last_accessed|date:"M d, Y H:i" }}
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-400 text-sm">No learning activity yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

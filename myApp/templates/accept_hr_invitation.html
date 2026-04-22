@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept HR Invitation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-md bg-slate-900 border border-cyan-400/30 rounded-xl p-6">
+        <h1 class="text-2xl font-bold mb-2">Accept HR Invitation</h1>
+        <p class="text-sm text-slate-300 mb-4">Invited email: <strong>{{ invitation.invited_email }}</strong></p>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-3 p-3 rounded-lg text-sm {% if message.tags == 'error' %}bg-red-500/20 border border-red-500/30 text-red-300{% else %}bg-cyan-500/20 border border-cyan-500/30 text-cyan-200{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm mb-1">New Password</label>
+                <input type="password" name="password" required class="w-full bg-slate-800 border border-cyan-400/30 rounded-lg px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm mb-1">Confirm Password</label>
+                <input type="password" name="password_confirm" required class="w-full bg-slate-800 border border-cyan-400/30 rounded-lg px-3 py-2">
+            </div>
+            <button type="submit" class="w-full py-2 rounded-lg bg-cyan-400 text-slate-950 font-semibold hover:bg-cyan-300 transition">Activate HR Account</button>
+        </form>
+    </div>
+</body>
+</html>
