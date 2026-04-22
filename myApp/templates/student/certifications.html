@@ -616,7 +616,7 @@
             {% if cert.accredible_certificate_url %}
             <a href="{{ cert.accredible_certificate_url }}" target="_blank" class="btn-cert-view">
                 <i class="fas fa-arrow-up-right-from-square"></i>
-                View on Accredible
+                View Certificate
             </a>
             {% elif cert.status == 'passed' %}
             <div class="btn-processing">
@@ -625,8 +625,8 @@
             </div>
             {% elif cert.status == 'eligible' %}
             <a href="{% url 'student_course_progress' cert.course.slug %}" class="btn-take-exam">
-                <i class="fas fa-pen-to-square"></i>
-                Take Final Exam
+                <i class="fas fa-book-open"></i>
+                Open Course
             </a>
             {% endif %}
         </div>
@@ -637,7 +637,7 @@
     <div class="empty-block reveal" style="transition-delay:.1s">
         <div class="empty-ico"><i class="fas fa-certificate"></i></div>
         <div class="empty-title">No Certifications Yet</div>
-        <p class="empty-text">Complete courses and pass their final exams to earn official certifications and unlock achievement trophies.</p>
+        <p class="empty-text">Complete your course lessons to automatically earn official certifications and unlock achievement trophies.</p>
         <a href="{% url 'student_dashboard' %}" class="btn-empty">
             <i class="fas fa-layer-group"></i> View My Courses
         </a>
@@ -656,10 +656,10 @@
             <div class="eligible-card">
                 <div>
                     <div class="eligible-name">{{ course.name }}</div>
-                    <div class="eligible-hint">All lessons complete — pass the final exam to earn your certificate.</div>
+                    <div class="eligible-hint">All lessons complete — your certificate will be generated automatically.</div>
                 </div>
                 <a href="{% url 'student_course_progress' course.slug %}" class="btn-eligible">
-                    <i class="fas fa-pen-to-square" style="font-size:12px;"></i> Take Exam
+                    <i class="fas fa-certificate" style="font-size:12px;"></i> Open Course
                 </a>
             </div>
             {% endfor %}

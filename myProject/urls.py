@@ -21,6 +21,7 @@ urlpatterns = [
     # Student Dashboard (Client-facing)
     path('my-dashboard/', views.student_dashboard, name='student_dashboard'),
     path('my-dashboard/course/<slug:course_slug>/', views.student_course_progress, name='student_course_progress'),
+    path('my-dashboard/course/<slug:course_slug>/congratulations/', views.course_congratulations, name='course_congratulations'),
     path('my-certifications/', views.student_certifications, name='student_certifications'),
     
     # Dashboard URLs (Admin-facing, for developers)

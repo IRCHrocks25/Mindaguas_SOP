@@ -64,75 +64,15 @@
     </div>
     {% endif %}
 
-    <!-- Exam & Certification Section -->
-    {% if exam or certification %}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {% if exam %}
-        <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
-            <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-                <i class="fas fa-clipboard-check text-cyan-electric"></i>
-                Final Exam
-            </h3>
-            {% if is_exam_available %}
-            <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-400">Attempts</span>
-                    <span class="font-semibold">{{ exam_attempts|length }}/{{ exam.max_attempts|default:"∞" }}</span>
-                </div>
-                {% if exam_attempts %}
-                <div class="space-y-2">
-                    {% for attempt in exam_attempts %}
-                    <div class="bg-[#1a1f3a]/50 rounded-lg p-3 flex items-center justify-between">
-                        <div>
-                            <div class="text-sm font-medium">Attempt #{{ attempt.attempt_number }}</div>
-                            <div class="text-xs text-gray-400">{{ attempt.started_at|date:"M d, Y H:i" }}</div>
-                        </div>
-                        <div class="text-right">
-                            {% if attempt.score is not None %}
-                            <div class="text-sm font-bold {% if attempt.passed %}text-green-400{% else %}text-red-400{% endif %}">
-                                {{ attempt.score|floatformat:1 }}%
-                            </div>
-                            <div class="text-xs {% if attempt.passed %}text-green-400{% else %}text-red-400{% endif %}">
-                                {% if attempt.passed %}Passed{% else %}Failed{% endif %}
-                            </div>
-                            {% else %}
-                            <div class="text-xs text-gray-400">In Progress</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-                {% with exam_attempts|last as last_attempt %}
-                {% if not exam_attempts or not last_attempt.passed %}
-                <button class="w-full mt-4 px-4 py-2 bg-gradient-to-r from-cyan-electric to-purple-accent hover:from-cyan-electric/90 hover:to-purple-accent/90 text-[#0a0e27] font-semibold rounded-lg transition-all">
-                    {% if exam_attempts %}Retake Exam{% else %}Start Exam{% endif %}
-                </button>
-                {% endif %}
-                {% endwith %}
-            </div>
-            {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-lock text-4xl text-gray-600 mb-2"></i>
-                <p class="text-sm text-gray-400">
-                    {% if enrollment.payment_type == 'installment' %}
-                    Exam unlocks {{ enrollment.days_until_exam }} days after enrollment
-                    {% else %}
-                    Complete all lessons to unlock the exam
-                    {% endif %}
-                </p>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
-        
-        {% if certification %}
-        <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
+    <!-- Certification Section -->
+    {% if certification or progress_percentage == 100 %}
+    <div class="bg-[#0a0e27]/60 backdrop-blur-sm border border-cyan-electric/10 rounded-xl p-6">
             <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
                 <i class="fas fa-certificate text-yellow-400"></i>
                 Certification
             </h3>
             <div class="space-y-3">
+                {% if certification %}
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-400">Status</span>
                     <span class="px-3 py-1 rounded-full text-xs font-semibold
@@ -153,10 +93,13 @@
                 <a href="{{ certification.accredible_certificate_url }}" target="_blank" class="block w-full mt-4 px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-500/90 hover:to-yellow-600/90 text-white font-semibold rounded-lg transition-all text-center">
                     <i class="fas fa-external-link-alt mr-2"></i>View Certificate
                 </a>
+                {% else %}
+                <div class="text-sm text-gray-400">Certificate is being prepared. Please refresh in a few moments.</div>
+                {% endif %}
+                {% else %}
+                <div class="text-sm text-gray-400">Complete all lessons to generate your certificate.</div>
                 {% endif %}
             </div>
-        </div>
-        {% endif %}
     </div>
     {% endif %}
 

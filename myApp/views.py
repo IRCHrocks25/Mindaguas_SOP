@@ -35,6 +35,7 @@ from django.db import models
 from django.utils import timezone
 from .utils.transcription import transcribe_video
 from .utils.access import has_course_access
+from .utils.certification_generator import generate_certificate
 
 
 def home(request):
@@ -1171,6 +1172,62 @@ def format_duration(seconds):
     return f"{minutes}:{secs:02d}"
 
 
+def _ensure_course_certificate(user, course):
+    """
+    Ensure a certificate exists and is generated once all course lessons are completed.
+    Certificate eligibility is based on lesson completion only (no exam requirement).
+    """
+    total_lessons = course.lessons.count()
+    if total_lessons <= 0:
+        return None
+
+    completed_lessons = UserProgress.objects.filter(
+        user=user,
+        lesson__course=course,
+        completed=True
+    ).count()
+    if completed_lessons < total_lessons:
+        return None
+
+    now = timezone.now()
+    certification, _ = Certification.objects.get_or_create(
+        user=user,
+        course=course,
+        defaults={
+            'status': 'passed',
+            'issued_at': now,
+        }
+    )
+
+    dirty = False
+    if certification.status != 'passed':
+        certification.status = 'passed'
+        dirty = True
+    if not certification.issued_at:
+        certification.issued_at = now
+        dirty = True
+
+    if not certification.accredible_certificate_url:
+        try:
+            cert_result = generate_certificate(
+                user=user,
+                course=course,
+                issued_date=certification.issued_at or now,
+                upload_to_cloudinary=True
+            )
+            if cert_result:
+                certification.accredible_certificate_url = cert_result.get('certificate_url', '')
+                certification.accredible_certificate_id = cert_result.get('certificate_id', '')
+                dirty = True
+        except Exception as exc:
+            print(f"Certificate generation failed for user={user.id}, course={course.id}: {exc}")
+
+    if dirty:
+        certification.save()
+
+    return certification
+
+
 # ========== CHATBOT WEBHOOK ==========
 
 @require_http_methods(["POST"])
@@ -1203,6 +1260,10 @@ def update_video_progress(request, lesson_id):
         
         # Auto-update status based on watch progress
         user_progress.update_status()
+
+        # Auto-generate certificate when course is fully completed (lesson-based only)
+        if user_progress.completed:
+            _ensure_course_certificate(request.user, lesson.course)
         
         return JsonResponse({
             'success': True,
@@ -1219,31 +1280,9 @@ def update_video_progress(request, lesson_id):
 def complete_lesson(request, lesson_id):
     """Mark a lesson as complete for the current user.
     
-    If the lesson has a quiz, it must be passed before the lesson can be completed.
+    Completion is lesson-based only (no quiz/final exam requirement).
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
-    
-    # Check if lesson has a required quiz
-    try:
-        quiz = lesson.quiz
-        if quiz.is_required:
-            # Check if user has passed the quiz
-            passed_attempt = LessonQuizAttempt.objects.filter(
-                user=request.user,
-                quiz=quiz,
-                passed=True
-            ).exists()
-            
-            if not passed_attempt:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'You must pass the lesson quiz before completing this lesson.',
-                    'quiz_required': True,
-                    'quiz_url': f'/courses/{lesson.course.slug}/{lesson.slug}/quiz/'
-                }, status=400)
-    except LessonQuiz.DoesNotExist:
-        # No quiz, proceed with completion
-        pass
     
     # Get or create UserProgress
     user_progress, created = UserProgress.objects.get_or_create(
@@ -1257,11 +1296,15 @@ def complete_lesson(request, lesson_id):
     user_progress.completed_at = datetime.now()
     user_progress.progress_percentage = 100
     user_progress.save()
+
+    # Auto-generate certificate when the whole course is completed
+    certification = _ensure_course_certificate(request.user, lesson.course)
     
     return JsonResponse({
         'success': True,
         'message': 'Lesson marked as complete',
-        'lesson_id': lesson_id
+        'lesson_id': lesson_id,
+        'certificate_url': certification.accredible_certificate_url if certification else ''
     })
 
 
@@ -1482,6 +1525,10 @@ def student_course_progress(request, course_slug):
     except Exam.DoesNotExist:
         pass
     
+    # Ensure certificate is generated once lessons are fully complete
+    if progress_percentage == 100:
+        _ensure_course_certificate(user, course)
+
     # Get certification
     try:
         certification = Certification.objects.get(user=user, course=course)
@@ -1507,6 +1554,39 @@ def student_course_progress(request, course_slug):
 
 
 @login_required
+def course_congratulations(request, course_slug):
+    """Celebration page shown after finishing all lessons in a course."""
+    course = get_object_or_404(Course, slug=course_slug)
+    user = request.user
+
+    # Check access
+    has_access, _, _ = has_course_access(user, course)
+    if not has_access:
+        messages.error(request, 'You do not have access to this course.')
+        return redirect('courses')
+
+    total_lessons = course.lessons.count()
+    completed_lessons = UserProgress.objects.filter(
+        user=user,
+        lesson__course=course,
+        completed=True
+    ).count()
+
+    # If not complete yet, return to progress page
+    if total_lessons <= 0 or completed_lessons < total_lessons:
+        return redirect('student_course_progress', course_slug=course.slug)
+
+    certification = _ensure_course_certificate(user, course)
+
+    return render(request, 'student/course_congratulations.html', {
+        'course': course,
+        'total_lessons': total_lessons,
+        'completed_lessons': completed_lessons,
+        'certification': certification,
+    })
+
+
+@login_required
 def student_certifications(request):
     """View all certifications"""
     user = request.user
@@ -1526,6 +1606,7 @@ def student_certifications(request):
         ).count()
         
         if completed_lessons >= total_lessons and total_lessons > 0:
+            _ensure_course_certificate(user, enrollment.course)
             # Check if certification exists
             if not Certification.objects.filter(user=user, course=enrollment.course).exists():
                 eligible_courses.append(enrollment.course)

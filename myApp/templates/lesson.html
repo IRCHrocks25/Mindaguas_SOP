@@ -459,6 +459,8 @@
     // Video Progress Tracking
     const lessonId = {{ lesson.id }};
     const nextLessonUrl = {% if next_lesson %}"{% url 'lesson_detail' course_slug=course.slug lesson_slug=next_lesson.slug %}"{% else %}null{% endif %};
+    const courseProgressUrl = "{% url 'student_course_progress' course_slug=course.slug %}";
+    const courseCongratulationsUrl = "{% url 'course_congratulations' course_slug=course.slug %}";
     const videoDuration = {{ lesson.vimeo_duration_seconds|default:0 }};
     let videoProgressInterval = null;
     let vimeoPlayer = null;
@@ -525,11 +527,16 @@
         .then(response => response.json())
         .then(data => {
             if (data.success && data.completed) {
-                // Lesson was auto-completed, reload to show completion state
+                // Lesson was auto-completed.
+                // If this is the last lesson, send learner to course progress so they can open certificate.
                 const finishBtn = document.getElementById('finish-lesson-btn');
                 if (finishBtn && !finishBtn.disabled) {
                     setTimeout(() => {
-                        window.location.reload();
+                        if (!nextLessonUrl) {
+                            window.location.href = courseCongratulationsUrl;
+                        } else {
+                            window.location.reload();
+                        }
                     }, 1000);
                 }
             }
@@ -974,7 +981,7 @@
                         if (nextLessonUrl) {
                             window.location.href = nextLessonUrl;
                         } else {
-                            window.location.reload();
+                            window.location.href = courseCongratulationsUrl;
                         }
                     } else {
                         // Show error
@@ -1070,10 +1077,10 @@
                             }, 100);
                         }
                         
-                        // Reload page after a short delay to update all UI elements (only if no next lesson)
+                        // Redirect to course progress when this is the final lesson
                         if (!nextLessonUrl) {
                             setTimeout(() => {
-                                window.location.reload();
+                                window.location.href = courseCongratulationsUrl;
                             }, 1000);
                         }
                     } else {
